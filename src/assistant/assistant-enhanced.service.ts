@@ -1,0 +1,766 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { IntentDetectorService, AssistantCommandDto, DetectedIntent } from './intent-detector.service';
+import { RAGService, RAGResponse } from './rag.service';
+import { AssistantService } from './assistant.service';
+import { ConversationFlowService, ConversationContext } from './conversation-flow.service';
+import { TechnicianAssignmentService, AssignmentResult } from './technician-assignment.service';
+
+export interface AssistantResponse {
+  spokenText: string;
+  actions?: AssistantAction[];
+  data?: any;
+  confidence?: number;
+  usedRAG?: boolean;
+  isConversationFlow?: boolean;
+  conversationSessionId?: string;
+}
+
+export interface AssistantAction {
+  type: string;
+  payload?: any;
+}
+
+@Injectable()
+export class AssistantEnhancedService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly intentDetector: IntentDetectorService,
+    private readonly rag: RAGService,
+    private readonly assistantService: AssistantService, // Tu servicio existente
+    private readonly conversationFlow: ConversationFlowService,
+    private readonly technicianAssignment: TechnicianAssignmentService,
+  ) {}
+
+  /**
+   * Procesa comando usando IA avanzada (Gemini + RAG + Conversaciones)
+   */
+  async handleAdvancedCommand(dto: AssistantCommandDto): Promise<AssistantResponse> {
+    try {
+      console.log('🤖 AssistantEnhanced - Comando recibido:', dto);
+      
+      // 1. Verificar si hay una conversación activa
+      const activeConversation = this.conversationFlow.getActiveConversation(dto.userId);
+      console.log('💬 Conversación activa:', activeConversation ? 'SÍ' : 'NO');
+      
+      if (activeConversation) {
+        console.log('💬 Procesando conversación activa...');
+        return this.handleConversationFlow(dto, activeConversation);
+      }
+
+      // 2. Detectar si el comando requiere iniciar un flujo de conversación
+      const flowIntent = this.conversationFlow.detectFlowIntent(dto.text);
+      console.log('🔍 Flow intent detectado:', flowIntent);
+      
+      if (flowIntent === 'DIRECT_ASSIGNMENT') {
+        console.log('🚀 Ejecutando asignación directa...');
+        return this.executeDirectAssignment(dto);
+      }
+      
+      if (flowIntent) {
+        console.log('🚀 Iniciando flujo de conversación:', flowIntent);
+        return this.startConversationFlow(dto, flowIntent);
+      }
+
+      // 3. Detectar intención con Gemini
+      const detected = await this.intentDetector.detect(dto);
+
+      // 4. Si es consulta técnica, usar RAG
+      if (detected.intent === 'TECH_DIAGNOSIS') {
+        return this.handleTechnicalQuery(dto, detected);
+      }
+
+      // 5. Ejecutar intenciones múltiples
+      const intents = [detected, ...(detected.extraIntents || [])];
+      const responses: string[] = [];
+      const allActions: AssistantAction[] = [];
+      const allData: any = {};
+
+      for (const intent of intents) {
+        const response = await this.executeIntent(dto, intent);
+        if (response.spokenText) responses.push(response.spokenText);
+        if (response.actions) allActions.push(...response.actions);
+        if (response.data) Object.assign(allData, response.data);
+      }
+
+      return {
+        spokenText: responses.join(' '),
+        actions: allActions,
+        data: allData,
+        confidence: detected.confidence
+      };
+
+    } catch (error) {
+      console.error('Error en comando avanzado:', error);
+      
+      // Fallback al sistema original
+      const fallbackResponse = await this.assistantService.procesarMensaje(dto.userId, dto.text);
+      
+      return {
+        spokenText: fallbackResponse.respuesta || "No pude procesar tu comando.",
+        confidence: 0.3
+      };
+    }
+  }
+
+  /**
+   * Inicia un flujo de conversación
+   */
+  private startConversationFlow(dto: AssistantCommandDto, flowType: string): AssistantResponse {
+    console.log('🚀 Iniciando flujo:', flowType, 'para usuario:', dto.userId);
+    const context = this.conversationFlow.startFlow(dto.userId, flowType);
+    console.log('📝 Contexto creado:', context);
+    
+    // Obtener el primer paso del flujo
+    const result = this.conversationFlow.processFlowInput(context.sessionId, '');
+    console.log('📋 Primer paso del flujo:', result);
+    
+    return {
+      spokenText: result.message,
+      isConversationFlow: true,
+      conversationSessionId: context.sessionId,
+      confidence: 0.9
+    };
+  }
+
+  /**
+   * Maneja el flujo de conversación activa
+   */
+  private async handleConversationFlow(dto: AssistantCommandDto, context: ConversationContext): Promise<AssistantResponse> {
+    console.log('💬 Procesando input en conversación:', dto.text);
+    const result = this.conversationFlow.processFlowInput(context.sessionId, dto.text);
+    console.log('📋 Resultado del flujo:', result);
+    
+    if (result.isComplete && result.action) {
+      console.log('✅ Flujo completado, ejecutando acción:', result.action);
+      // Ejecutar la acción final del flujo
+      return this.executeFlowAction(result.action, result.data);
+    }
+    
+    return {
+      spokenText: result.message,
+      isConversationFlow: !result.isComplete,
+      conversationSessionId: result.isComplete ? undefined : context.sessionId,
+      confidence: 0.9,
+      data: result.data
+    };
+  }
+
+  /**
+   * Ejecuta acciones de flujos completados
+   */
+  private async executeFlowAction(action: string, data: any): Promise<AssistantResponse> {
+    switch (action) {
+      case 'EXECUTE_ASSIGNMENT':
+        return this.executeAssignment(data);
+      
+      case 'EXECUTE_CREATE_ORDER':
+        return this.executeCreateOrder(data);
+      
+      case 'EXECUTE_UPDATE_STATUS':
+        return this.executeUpdateStatus(data);
+      
+      default:
+        return {
+          spokenText: 'Acción completada.',
+          confidence: 0.8
+        };
+    }
+  }
+
+  /**
+   * Ejecuta asignación directa desde el comando inicial
+   */
+  private async executeDirectAssignment(dto: AssistantCommandDto): Promise<AssistantResponse> {
+    try {
+      console.log('🎯 Ejecutando asignación directa para:', dto.text);
+      
+      const orderId = this.extractOrderId(dto.text);
+      const criteria = dto.text.toLowerCase();
+      
+      if (!orderId) {
+        return {
+          spokenText: 'No pude identificar el número de orden en tu comando.',
+          confidence: 0.5
+        };
+      }
+
+      console.log('📋 Orden ID:', orderId, 'Criterio detectado:', criteria);
+
+      let result: AssignmentResult;
+
+      if (criteria.includes('cercano')) {
+        console.log('📍 Asignación por proximidad...');
+        const orden = await this.prisma.orden.findUnique({ where: { id: orderId } });
+        
+        if (orden?.ubicacionLatitud && orden?.ubicacionLongitud) {
+          const tecnico = await this.technicianAssignment.findClosestAvailableTechnician(
+            orden.ubicacionLatitud, orden.ubicacionLongitud
+          );
+          if (tecnico) {
+            result = await this.technicianAssignment.assignTechnicianToOrder(orderId, tecnico.id);
+          } else {
+            result = { success: false, message: 'No hay técnicos disponibles cerca' };
+          }
+        } else {
+          result = await this.technicianAssignment.autoAssignTechnician(orderId);
+        }
+      } else if (criteria.includes('disponible')) {
+        console.log('⏰ Asignación por disponibilidad...');
+        const tecnico = await this.technicianAssignment.findMostAvailableTechnician();
+        if (tecnico) {
+          result = await this.technicianAssignment.assignTechnicianToOrder(orderId, tecnico.id);
+        } else {
+          result = { success: false, message: 'No hay técnicos disponibles' };
+        }
+      } else {
+        console.log('🤖 Asignación automática...');
+        result = await this.technicianAssignment.autoAssignTechnician(orderId);
+      }
+
+      console.log('📋 Resultado asignación directa:', result);
+
+      return {
+        spokenText: result.message,
+        confidence: result.success ? 0.9 : 0.7,
+        actions: result.success ? [
+          { type: 'REFRESH_ORDER_LIST' },
+          { type: 'HIGHLIGHT_ORDER', payload: { orderId } }
+        ] : [],
+        data: { assignment: result }
+      };
+
+    } catch (error) {
+      console.error('❌ Error en asignación directa:', error);
+      return {
+        spokenText: 'Hubo un error al procesar la asignación. Por favor, intenta de nuevo.',
+        confidence: 0.3
+      };
+    }
+  }
+
+  /**
+   * Ejecuta la asignación de técnico basada en los datos del flujo
+   */
+  private async executeAssignment(data: any): Promise<AssistantResponse> {
+    try {
+      console.log('🎯 Ejecutando asignación con datos:', data);
+      const orderId = this.extractOrderId(data.ask_order);
+      const criteria = data.ask_assignment_criteria?.toLowerCase() || '';
+      console.log('📋 Orden ID extraído:', orderId, 'Criterio:', criteria);
+      
+      if (!orderId) {
+        console.log('❌ No se pudo extraer el ID de orden');
+        return {
+          spokenText: 'No pude identificar el número de orden. Por favor, intenta de nuevo.',
+          confidence: 0.5
+        };
+      }
+
+      let result: AssignmentResult;
+
+      console.log('🔍 Analizando criterio de asignación:', criteria);
+
+      if (criteria.includes('cercano')) {
+        console.log('📍 Buscando técnico más cercano...');
+        // Buscar técnico más cercano
+        const orden = await this.prisma.orden.findUnique({ where: { id: orderId } });
+        console.log('📋 Orden encontrada:', !!orden, 'Ubicación:', orden?.ubicacionLatitud, orden?.ubicacionLongitud);
+        
+        if (orden?.ubicacionLatitud && orden?.ubicacionLongitud) {
+          const tecnico = await this.technicianAssignment.findClosestAvailableTechnician(
+            orden.ubicacionLatitud, orden.ubicacionLongitud
+          );
+          console.log('👷 Técnico más cercano encontrado:', !!tecnico, tecnico?.nombre);
+          
+          if (tecnico) {
+            result = await this.technicianAssignment.assignTechnicianToOrder(orderId, tecnico.id);
+          } else {
+            result = { success: false, message: 'No hay técnicos disponibles cerca de la ubicación' };
+          }
+        } else {
+          // Si no tiene ubicación, usar asignación automática
+          console.log('⚠️ Orden sin ubicación, usando asignación automática...');
+          result = await this.technicianAssignment.autoAssignTechnician(orderId);
+        }
+      } else if (criteria.includes('disponible')) {
+        console.log('⏰ Buscando técnico más disponible...');
+        // Buscar técnico más disponible
+        const tecnico = await this.technicianAssignment.findMostAvailableTechnician();
+        console.log('👷 Técnico más disponible encontrado:', !!tecnico, tecnico?.nombre);
+        
+        if (tecnico) {
+          result = await this.technicianAssignment.assignTechnicianToOrder(orderId, tecnico.id);
+        } else {
+          result = { success: false, message: 'No hay técnicos disponibles' };
+        }
+      } else if (criteria.includes('específico')) {
+        console.log('🎯 Buscando técnico específico...');
+        // Buscar técnico específico
+        const tecnicoName = data.ask_specific_technician;
+        console.log('👤 Nombre del técnico:', tecnicoName);
+        
+        const tecnico = await this.technicianAssignment.findTechnicianByName(tecnicoName);
+        console.log('👷 Técnico específico encontrado:', !!tecnico, tecnico?.nombre);
+        
+        if (tecnico) {
+          result = await this.technicianAssignment.assignTechnicianToOrder(orderId, tecnico.id);
+        } else {
+          result = { success: false, message: `No encontré al técnico ${tecnicoName}` };
+        }
+      } else {
+        console.log('🤖 Usando asignación automática...');
+        // Asignación automática
+        result = await this.technicianAssignment.autoAssignTechnician(orderId);
+      }
+
+      console.log('📋 Resultado de la asignación:', result);
+
+      return {
+        spokenText: result.message,
+        confidence: result.success ? 0.9 : 0.7,
+        actions: result.success ? [
+          { type: 'REFRESH_ORDER_LIST' },
+          { type: 'HIGHLIGHT_ORDER', payload: { orderId } }
+        ] : [],
+        data: { assignment: result }
+      };
+
+    } catch (error) {
+      console.error('Error ejecutando asignación:', error);
+      return {
+        spokenText: 'Hubo un error al asignar el técnico. Por favor, intenta de nuevo.',
+        confidence: 0.3
+      };
+    }
+  }
+
+  /**
+   * Ejecuta la creación de orden basada en los datos del flujo
+   */
+  private async executeCreateOrder(data: any): Promise<AssistantResponse> {
+    try {
+      const problema = data.ask_problem;
+      const ubicacion = data.ask_location;
+      const prioridad = data.ask_priority?.toLowerCase();
+      
+      const prioridadMap = {
+        'alta': 'ALTA',
+        'media': 'MEDIA', 
+        'baja': 'BAJA'
+      };
+
+      const nuevaOrden = await this.prisma.orden.create({
+        data: {
+          descripcion: problema,
+          tipoProblema: problema,
+          ubicacion: ubicacion,
+          prioridad: prioridadMap[prioridad] || 'MEDIA',
+          estado: 'PENDIENTE',
+          fechasolicitud: new Date(),
+          clienteid: 1 // Por defecto, debería obtenerse del contexto del usuario
+        }
+      });
+
+      return {
+        spokenText: `He creado la orden ${nuevaOrden.id} para el problema: ${problema}. La orden está pendiente de asignación.`,
+        confidence: 0.9,
+        actions: [
+          { type: 'REFRESH_ORDER_LIST' },
+          { type: 'HIGHLIGHT_ORDER', payload: { orderId: nuevaOrden.id } }
+        ],
+        data: { orden: nuevaOrden }
+      };
+
+    } catch (error) {
+      console.error('Error creando orden:', error);
+      return {
+        spokenText: 'Hubo un error al crear la orden. Por favor, intenta de nuevo.',
+        confidence: 0.3
+      };
+    }
+  }
+
+  /**
+   * Ejecuta la actualización de estado basada en los datos del flujo
+   */
+  private async executeUpdateStatus(data: any): Promise<AssistantResponse> {
+    try {
+      const orderId = this.extractOrderId(data.ask_order_id);
+      const nuevoEstado = data.ask_new_status?.toLowerCase();
+      
+      const estadoMap = {
+        'en proceso': 'EN_PROCESO',
+        'completado': 'COMPLETADO',
+        'cancelado': 'CANCELADO',
+        'pausado': 'PAUSADO'
+      };
+
+      const estadoDB = estadoMap[nuevoEstado];
+      
+      if (!orderId || !estadoDB) {
+        return {
+          spokenText: 'No pude identificar la orden o el estado. Por favor, intenta de nuevo.',
+          confidence: 0.5
+        };
+      }
+
+      const ordenActualizada = await this.prisma.orden.update({
+        where: { id: orderId },
+        data: { 
+          estado: estadoDB as any,
+          fechaCompletado: estadoDB === 'COMPLETADO' ? new Date() : null
+        }
+      });
+
+      // Si se completa la orden, actualizar estado del técnico
+      if (estadoDB === 'COMPLETADO') {
+        await this.technicianAssignment.updateTechnicianStatusOnOrderComplete(orderId);
+      }
+
+      return {
+        spokenText: `He actualizado la orden ${orderId} a estado ${nuevoEstado}.`,
+        confidence: 0.9,
+        actions: [
+          { type: 'REFRESH_ORDER_LIST' },
+          { type: 'HIGHLIGHT_ORDER', payload: { orderId } }
+        ],
+        data: { orden: ordenActualizada }
+      };
+
+    } catch (error) {
+      console.error('Error actualizando estado:', error);
+      return {
+        spokenText: 'Hubo un error al actualizar el estado. Por favor, intenta de nuevo.',
+        confidence: 0.3
+      };
+    }
+  }
+
+  /**
+   * Extrae el ID de orden del texto del usuario
+   */
+  private extractOrderId(text: string): number | null {
+    console.log('🔍 Extrayendo ID de orden del texto:', text);
+    const matches = text.match(/\b(\d+)\b/);
+    const orderId = matches ? parseInt(matches[1]) : null;
+    console.log('📋 ID de orden extraído:', orderId);
+    return orderId;
+  }
+
+  /**
+   * Maneja consultas técnicas usando RAG
+   */
+  private async handleTechnicalQuery(dto: AssistantCommandDto, intent: DetectedIntent): Promise<AssistantResponse> {
+    const ragResponse = await this.rag.answer(intent.rawText);
+    
+    return {
+      spokenText: ragResponse.answer,
+      data: { 
+        usedDocs: ragResponse.usedDocs,
+        category: ragResponse.category 
+      },
+      confidence: ragResponse.confidence,
+      usedRAG: true
+    };
+  }
+
+  /**
+   * Ejecuta una intención específica
+   */
+  private async executeIntent(dto: AssistantCommandDto, intent: DetectedIntent): Promise<AssistantResponse> {
+    switch (intent.intent) {
+      case 'GET_ORDER_STATUS':
+        return this.getOrderStatus(dto, intent);
+      
+      case 'UPDATE_ORDER_STATUS':
+        return this.updateOrderStatus(dto, intent);
+      
+      case 'ASSIGN_TECHNICIAN':
+        return this.assignTechnician(dto, intent);
+      
+      case 'SHOW_ROUTE':
+        return this.showRoute(dto, intent);
+      
+      case 'GET_TECHNICIAN_LOCATION':
+        return this.getTechnicianLocation(dto, intent);
+      
+      case 'RESCHEDULE_ORDER':
+        return this.rescheduleOrder(dto, intent);
+      
+      case 'GET_DAILY_REPORT':
+        return this.getDailyReport(dto);
+      
+      case 'GET_INVENTORY_ITEM':
+      case 'REQUEST_MATERIAL':
+        return this.handleInventory(dto, intent);
+      
+      default:
+        return { spokenText: "No entendí ese comando específico." };
+    }
+  }
+
+  /**
+   * Obtener estado de orden
+   */
+  private async getOrderStatus(dto: AssistantCommandDto, intent: DetectedIntent): Promise<AssistantResponse> {
+    try {
+      const orderId = intent.orderId || dto.activeOrderId;
+      
+      if (!orderId) {
+        return { spokenText: "No especificaste qué orden consultar." };
+      }
+
+      const orden = await this.prisma.orden.findUnique({
+        where: { id: orderId },
+        include: { 
+          tecnico: { include: { usuario: true } },
+          cliente: true 
+        }
+      });
+
+      if (!orden) {
+        return { spokenText: `No encontré la orden ${orderId}.` };
+      }
+
+      const estado = this.translateStatus(orden.estado);
+      const tecnico = orden.tecnico?.usuario?.usuario || 'sin asignar';
+
+      return {
+        spokenText: `La orden ${orden.id} está ${estado}. Técnico asignado: ${tecnico}.`,
+        data: { orden },
+        actions: [{ type: "HIGHLIGHT_ORDER", payload: { orderId } }]
+      };
+
+    } catch (error) {
+      console.error('Error obteniendo estado:', error);
+      return { spokenText: "Error al consultar el estado de la orden." };
+    }
+  }
+
+  /**
+   * Actualizar estado de orden
+   */
+  private async updateOrderStatus(dto: AssistantCommandDto, intent: DetectedIntent): Promise<AssistantResponse> {
+    try {
+      const orderId = intent.orderId || dto.activeOrderId;
+      const newStatus = this.mapStatusToDatabase(intent.status || '');
+      
+      if (!orderId || !newStatus) {
+        return { spokenText: "No pude identificar la orden o el estado a actualizar." };
+      }
+
+      const updated = await this.prisma.orden.update({
+        where: { id: orderId },
+        data: { estado: newStatus as any }
+      });
+
+      const statusText = this.translateStatus(newStatus);
+
+      return {
+        spokenText: `He actualizado la orden ${orderId} a estado ${statusText}.`,
+        data: { orden: updated },
+        actions: [
+          { type: "REFRESH_ORDER_LIST" },
+          { type: "HIGHLIGHT_ORDER", payload: { orderId } }
+        ]
+      };
+
+    } catch (error) {
+      console.error('Error actualizando estado:', error);
+      return { spokenText: "Error al actualizar el estado de la orden." };
+    }
+  }
+
+  /**
+   * Asignar técnico
+   */
+  private async assignTechnician(dto: AssistantCommandDto, intent: DetectedIntent): Promise<AssistantResponse> {
+    try {
+      const orderId = intent.orderId || dto.activeOrderId;
+      
+      if (!orderId) {
+        return { spokenText: "No especificaste qué orden asignar." };
+      }
+
+      // Buscar técnico por nombre en el texto
+      const tecnico = await this.findTechnicianByName(intent.rawText);
+      
+      if (!tecnico) {
+        return { spokenText: "No encontré al técnico mencionado." };
+      }
+
+      await this.prisma.orden.update({
+        where: { id: orderId },
+        data: { tecnicoid: tecnico.id }
+      });
+
+      return {
+        spokenText: `He asignado la orden ${orderId} al técnico ${tecnico.usuario.usuario}.`,
+        actions: [
+          { type: "REFRESH_ORDER_LIST" },
+          { type: "OPEN_ORDER_DETAIL", payload: { orderId } }
+        ]
+      };
+
+    } catch (error) {
+      console.error('Error asignando técnico:', error);
+      return { spokenText: "Error al asignar el técnico." };
+    }
+  }
+
+  /**
+   * Mostrar ruta
+   */
+  private async showRoute(dto: AssistantCommandDto, intent: DetectedIntent): Promise<AssistantResponse> {
+    const orderId = intent.orderId || dto.activeOrderId;
+    
+    if (!orderId) {
+      return { spokenText: "No especificaste para qué orden mostrar la ruta." };
+    }
+
+    return {
+      spokenText: "Abriendo el mapa con la ruta hacia el cliente.",
+      actions: [{ type: "OPEN_ORDER_MAP", payload: { orderId } }]
+    };
+  }
+
+  /**
+   * Obtener ubicación de técnico
+   */
+  private async getTechnicianLocation(dto: AssistantCommandDto, intent: DetectedIntent): Promise<AssistantResponse> {
+    try {
+      const tecnicoId = intent.technicianId || dto.userId;
+      
+      // Buscar última ubicación registrada
+      const ubicacion = await this.prisma.$queryRaw`
+        SELECT lat, lng, "updatedAt" 
+        FROM "TecnicoUbicacion" 
+        WHERE "tecnicoId" = ${tecnicoId}
+        ORDER BY "updatedAt" DESC 
+        LIMIT 1
+      `;
+
+      if (!ubicacion || (ubicacion as any[]).length === 0) {
+        return { spokenText: "No hay ubicación registrada para este técnico." };
+      }
+
+      const loc = (ubicacion as any[])[0];
+      const timeAgo = this.getTimeAgo(new Date(loc.updatedAt));
+
+      return {
+        spokenText: `El técnico se encuentra en las coordenadas ${loc.lat}, ${loc.lng}. Última actualización: ${timeAgo}.`,
+        data: { ubicacion: loc },
+        actions: [{ type: "SHOW_TECHNICIAN_LOCATION", payload: { lat: loc.lat, lng: loc.lng } }]
+      };
+
+    } catch (error) {
+      console.error('Error obteniendo ubicación:', error);
+      return { spokenText: "Error al consultar la ubicación del técnico." };
+    }
+  }
+
+  /**
+   * Reprogramar orden
+   */
+  private async rescheduleOrder(dto: AssistantCommandDto, intent: DetectedIntent): Promise<AssistantResponse> {
+    try {
+      const orderId = intent.orderId || dto.activeOrderId;
+      
+      if (!orderId || !intent.dateTime) {
+        return { spokenText: "No pude identificar la orden o la nueva fecha." };
+      }
+
+      const newDate = new Date(intent.dateTime);
+      
+      await this.prisma.orden.update({
+        where: { id: orderId },
+        data: { fechasolicitud: newDate }
+      });
+
+      return {
+        spokenText: `He reprogramado la orden ${orderId} para ${newDate.toLocaleDateString()}.`,
+        actions: [
+          { type: "REFRESH_ORDER_LIST" },
+          { type: "OPEN_ORDER_DETAIL", payload: { orderId } }
+        ]
+      };
+
+    } catch (error) {
+      console.error('Error reprogramando:', error);
+      return { spokenText: "Error al reprogramar la orden." };
+    }
+  }
+
+  /**
+   * Generar reporte diario
+   */
+  private async getDailyReport(dto: AssistantCommandDto): Promise<AssistantResponse> {
+    return {
+      spokenText: "Generando reporte del día. Te mostraré las estadísticas.",
+      actions: [{ type: "OPEN_DAILY_REPORT" }]
+    };
+  }
+
+  /**
+   * Manejar inventario
+   */
+  private async handleInventory(dto: AssistantCommandDto, intent: DetectedIntent): Promise<AssistantResponse> {
+    const ragResponse = await this.rag.getMaterialInfo(intent.itemName || intent.rawText);
+    
+    return {
+      spokenText: ragResponse.answer,
+      data: { usedDocs: ragResponse.usedDocs },
+      usedRAG: true
+    };
+  }
+
+  // Métodos auxiliares
+  private async findTechnicianByName(text: string): Promise<any> {
+    const tecnicos = await this.prisma.tecnico.findMany({
+      include: { usuario: true }
+    });
+
+    const textLower = text.toLowerCase();
+    return tecnicos.find(t => 
+      textLower.includes(t.usuario.usuario.toLowerCase()) ||
+      textLower.includes(t.nombre?.toLowerCase() || '')
+    );
+  }
+
+  private translateStatus(status: string): string {
+    const translations = {
+      'PENDIENTE': 'pendiente',
+      'ASIGNADA': 'asignada',
+      'EN_PROCESO': 'en proceso',
+      'COMPLETADA': 'completada',
+      'CANCELADA': 'cancelada'
+    };
+    return translations[status] || status;
+  }
+
+  private mapStatusToDatabase(status: string): string {
+    const mappings = {
+      'ARRIVED': 'EN_PROCESO',
+      'IN_PROGRESS': 'EN_PROCESO', 
+      'COMPLETED': 'COMPLETADA',
+      'CANCELLED': 'CANCELADA'
+    };
+    return mappings[status] || status;
+  }
+
+  private getTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'hace menos de un minuto';
+    if (diffMins < 60) return `hace ${diffMins} minutos`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `hace ${diffHours} horas`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    return `hace ${diffDays} días`;
+  }
+}

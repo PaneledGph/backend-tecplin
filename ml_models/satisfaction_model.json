@@ -1,0 +1,48 @@
+{
+  "weights": [
+    0.0001440634953369024,
+    -0.006369125171185498,
+    -0.0073145966786946634,
+    0,
+    0.002890419605418961,
+    -0.0038915711538575334
+  ],
+  "intercept": 4.01836506270923,
+  "meanX": [
+    8.032663316582914,
+    2.922110552763819,
+    5.028475711892797,
+    0,
+    5.66499162479062,
+    2.953098827470687
+  ],
+  "meanY": 3.9690117252931323,
+  "tiposProblema": [
+    "Problema de humedad",
+    "Pintura descascarada",
+    "Grifo goteando",
+    "Tubería obstruida",
+    "Horno no calienta",
+    "Ventana rota",
+    "Puerta atascada",
+    "Calefacción no funciona",
+    "Fuga de agua",
+    "Refrigerador no enfría",
+    "Pared agrietada",
+    "Interruptor defectuoso",
+    "Aire acondicionado no enfría",
+    "Lavadora no funciona",
+    "Cerradura dañada",
+    "Cortocircuito eléctrico"
+  ],
+  "especialidades": [
+    "HVAC",
+    "Electricidad",
+    "Plomería",
+    "Pintura",
+    "Refrigeración",
+    "Carpintería",
+    "Cerrajería",
+    "Albañilería"
+  ]
+}

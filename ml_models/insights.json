@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-11-09T19:23:07.280Z",
+  "ordenes": {
+    "total": 1209,
+    "completadas": 1197,
+    "promedio_calificacion": "3.97",
+    "especialidad_mas_demandada": "Electricidad",
+    "hora_pico": 15,
+    "dia_mas_ocupado": 2
+  },
+  "sensores": {
+    "total_lecturas": 5000,
+    "tipos": 6,
+    "lecturas_por_tipo": {
+      "TEMPERATURA": 735,
+      "VOLTAJE": 893,
+      "PRESION": 893,
+      "VIBRACION": 596,
+      "HUMEDAD": 794,
+      "CORRIENTE": 1089
+    }
+  }
+}

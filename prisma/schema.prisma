@@ -1,0 +1,400 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id                    Int                @id(map: "Usuario_pkey") @default(autoincrement())
+  usuario               String             @unique(map: "Usuario_usuario_key")
+  contrasena            String
+  rol                   Rol
+  preferredChannel      String?            @default("email") // email, whatsapp, telegram
+  telegramId            String?            @unique
+  whatsappNumber        String?
+  emailVerified         Boolean            @default(false)
+  cliente               Cliente?
+  tecnico               Tecnico?
+  sessions              AssistantSession[]
+  memories              AssistantMemory[]
+  notificaciones        Notificacion[]
+  refreshTokens         RefreshToken[]
+  auditLogs             AuditLog[]
+  ordenesAprobadas      Orden[]            @relation("OrdenAprobador")
+  conversacionesIniciadas Conversacion[]   @relation("ConversacionUsuario1")
+  conversacionesRecibidas Conversacion[]   @relation("ConversacionUsuario2")
+  mensajesEnviados      Mensaje[]          @relation("MensajeRemitente")
+
+  @@map("usuario")
+}
+
+model Cliente {
+  id        Int     @id(map: "Cliente_pkey") @default(autoincrement())
+  nombre    String
+  direccion String?
+  telefono  String?
+  email     String?
+  usuarioId Int     @unique(map: "Cliente_usuarioId_key") @map("usuarioid")
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], map: "Cliente_usuarioId_fkey")
+  orden     Orden[]
+
+  @@map("cliente")
+}
+
+model Tecnico {
+  id             Int            @id(map: "Tecnico_pkey") @default(autoincrement())
+  nombre         String
+  especialidad   String?
+  disponibilidad Disponibilidad @default(DISPONIBLE)
+  usuarioid      Int            @unique(map: "Tecnico_usuarioId_key")
+  orden          Orden[]
+  usuario        Usuario        @relation(fields: [usuarioid], references: [id], map: "Tecnico_usuarioId_fkey")
+  ubicacionActual TecnicoUbicacion?
+  ubicacionesLog  TecnicoUbicacionLog[]
+
+  @@map("tecnico")
+}
+
+model Orden {
+  id                      Int            @id(map: "Orden_pkey") @default(autoincrement())
+  descripcion             String
+  fechasolicitud          DateTime       @default(now())
+  estado                  Estado         @default(PENDIENTE)
+  prioridad               Prioridad      @default(MEDIA)
+  clienteid               Int
+  tecnicoid               Int?
+  ubicacion               String?
+  ubicacionLatitud        Float?
+  ubicacionLongitud       Float?
+  tipoProblema            String?
+  especialidadRequerida   String?
+  requiereAprobacion      Boolean        @default(false)
+  aprobadoPor             Int?
+  fechaAprobacion         DateTime?
+  fechaCompletado         DateTime?
+  googleCalendarEventId   String?
+  calificacion            Int?
+  comentarioCalificacion  String?        @map("comentario_calificacion")
+  // Nuevos campos expandidos
+  nombreContacto          String?
+  telefonoContacto        String?
+  emailContacto           String?
+  horarioPreferido        String?
+  materialesRequeridos    String?        @db.Text
+  observaciones           String?        @db.Text
+  imagenes                String[]       @default([])
+  costoEstimado           Float?
+  costoFinal              Float?
+  tiempoEstimadoHoras     Int?
+  // Relaciones
+  cliente                 Cliente        @relation(fields: [clienteid], references: [id], map: "Orden_clienteId_fkey")
+  tecnico                 Tecnico?       @relation(fields: [tecnicoid], references: [id], map: "Orden_tecnicoId_fkey")
+  aprobador               Usuario?       @relation("OrdenAprobador", fields: [aprobadoPor], references: [id])
+  notificaciones          Notificacion[]
+  alertas                 Alerta[]
+  evidencias              Evidencia[]
+  conversacion            Conversacion?
+  ubicacionesTecnico      TecnicoUbicacion[]
+  ubicacionesHistoricas   TecnicoUbicacionLog[]
+
+  @@map("orden")
+}
+
+model TecnicoUbicacion {
+  tecnicoId Int    @id @map("tecnicoid")
+  lat       Float
+  lng       Float
+  precision Float?
+  ordenId   Int?   @map("ordenid")
+  updatedAt DateTime @updatedAt @map("actualizadoen")
+
+  tecnico Tecnico @relation(fields: [tecnicoId], references: [id], map: "tecnico_ubicacion_tecnicoId_fkey")
+  orden   Orden?  @relation(fields: [ordenId], references: [id], map: "tecnico_ubicacion_ordenId_fkey")
+
+  @@map("tecnico_ubicacion")
+}
+
+model TecnicoUbicacionLog {
+  id         Int      @id @default(autoincrement())
+  tecnicoId  Int      @map("tecnicoid")
+  ordenId    Int?     @map("ordenid")
+  lat        Float
+  lng        Float
+  precision  Float?
+  createdAt  DateTime @default(now()) @map("creadoen")
+
+  tecnico Tecnico @relation(fields: [tecnicoId], references: [id], map: "tecnico_ubicacion_log_tecnicoId_fkey")
+  orden   Orden?  @relation(fields: [ordenId], references: [id], map: "tecnico_ubicacion_log_ordenId_fkey")
+
+  @@index([ordenId])
+  @@index([tecnicoId, createdAt])
+  @@map("tecnico_ubicacion_log")
+}
+
+model Evidencia {
+  id        Int      @id @default(autoincrement())
+  ordenid   Int
+  filename  String
+  filepath  String
+  mimetype  String?
+  size      Int?
+  userid    String?
+  userrole  String?
+  username  String?
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+  orden     Orden    @relation(fields: [ordenid], references: [id], onDelete: Cascade)
+
+  @@index([ordenid])
+  @@index([timestamp])
+  @@map("evidencia")
+}
+
+//
+// 🔹 ASISTENTE VIRTUAL
+//
+model AssistantSession {
+  id         Int                @id @default(autoincrement())
+  userId     Int
+  startedAt  DateTime           @default(now())
+  lastUsedAt DateTime           @updatedAt
+  messages   AssistantMessage[]
+  user       Usuario            @relation(fields: [userId], references: [id])
+
+  @@map("assistant_session")
+}
+
+model AssistantMessage {
+  id            Int                 @id @default(autoincrement())
+  sessionId     Int
+  role          String // 'user' | 'assistant' | 'system'
+  content       String
+  intent        String? // ej: 'CREAR_ORDEN', 'ASIGNAR_TECNICO'
+  payload       Json? // información adicional
+  createdAt     DateTime            @default(now())
+  autoFeedback  Int?                // 👈 nuevo campo opcional: -1, 0, 1
+  session       AssistantSession    @relation(fields: [sessionId], references: [id])
+  feedbacks     AssistantFeedback[] // relación inversa
+
+  @@map("assistant_message")
+}
+
+model AssistantMemory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  key       String
+  value     String
+  score     Float    @default(1.0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      Usuario  @relation(fields: [userId], references: [id])
+
+  @@unique([userId, key])
+  @@map("assistant_memory")
+}
+
+model AssistantFeedback {
+  id        Int              @id @default(autoincrement())
+  messageId Int
+  rating    Int // -1, 0, 1
+  note      String?
+  createdAt DateTime         @default(now())
+  message   AssistantMessage @relation(fields: [messageId], references: [id])
+
+  @@map("assistant_feedback")
+}
+
+model AssistantIntentStats {
+  id        Int      @id @default(autoincrement())
+  intent    String
+  version   String   @default("v1")
+  total     Int      @default(0)
+  scoreSum  Float    @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([intent, version])
+}
+
+//
+// 🔹 ENUMERACIONES
+//
+enum Rol {
+  CLIENTE
+  TECNICO
+  ADMIN
+}
+
+enum Estado {
+  PENDIENTE
+  ASIGNADO
+  EN_PROCESO
+  COMPLETADO
+  CANCELADO
+}
+
+enum Prioridad {
+  BAJA
+  MEDIA
+  ALTA
+}
+
+enum Disponibilidad {
+  DISPONIBLE
+  OCUPADO
+}
+
+//
+// 🔹 NOTIFICACIONES Y COMUNICACIÓN
+//
+model Notificacion {
+  id        Int               @id @default(autoincrement())
+  usuarioId Int
+  tipo      TipoNotificacion
+  titulo    String
+  mensaje   String
+  ordenId   Int?
+  leida     Boolean           @default(false)
+  createdAt DateTime          @default(now())
+  usuario   Usuario           @relation(fields: [usuarioId], references: [id])
+  orden     Orden?            @relation(fields: [ordenId], references: [id])
+
+  @@map("notificacion")
+}
+
+enum TipoNotificacion {
+  ORDEN_ASIGNADA
+  ORDEN_ACTUALIZADA
+  ORDEN_CANCELADA
+  MENSAJE_ASISTENTE
+  ALERTA_SISTEMA
+  ALERTA_IOT
+}
+
+//
+// 🔹 SEGURIDAD
+//
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  usuarioId Int
+  expiresAt DateTime
+  revocado  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@map("refresh_token")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int
+  accion     String
+  entidad    String?
+  entidadId  Int?
+  detalles   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@map("audit_log")
+}
+
+//
+// 🔹 IOT Y SENSORES
+//
+model Sensor {
+  id         Int         @id @default(autoincrement())
+  codigo     String      @unique
+  tipo       TipoSensor
+  ubicacion  String
+  umbralMin  Float?
+  umbralMax  Float?
+  activo     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  lecturas   Lectura[]
+  alertas    Alerta[]
+
+  @@map("sensor")
+}
+
+model Lectura {
+  id        Int      @id @default(autoincrement())
+  sensorId  Int
+  valor     Float
+  timestamp DateTime @default(now())
+  sensor    Sensor   @relation(fields: [sensorId], references: [id])
+
+  @@map("lectura")
+}
+
+model Alerta {
+  id        Int        @id @default(autoincrement())
+  sensorId  Int
+  tipo      TipoAlerta
+  mensaje   String
+  valor     Float?
+  resuelta  Boolean    @default(false)
+  ordenId   Int?
+  createdAt DateTime   @default(now())
+  sensor    Sensor     @relation(fields: [sensorId], references: [id])
+  orden     Orden?     @relation(fields: [ordenId], references: [id])
+
+  @@map("alerta")
+}
+
+enum TipoSensor {
+  TEMPERATURA
+  PRESION
+  VIBRACION
+  CORRIENTE
+  VOLTAJE
+  HUMEDAD
+}
+
+enum TipoAlerta {
+  UMBRAL_SUPERADO
+  UMBRAL_INFERIOR
+  FALLO_SENSOR
+  ANOMALIA
+}
+
+// ========================================
+// MODELOS DE CHAT
+// ========================================
+
+model Conversacion {
+  id             Int       @id @default(autoincrement())
+  usuario1Id     Int
+  usuario2Id     Int
+  ordenId        Int?      @unique
+  activa         Boolean   @default(true)
+  creadoEn       DateTime  @default(now())
+  actualizadoEn  DateTime  @updatedAt
+  cerradoEn      DateTime?
+  
+  usuario1       Usuario   @relation("ConversacionUsuario1", fields: [usuario1Id], references: [id])
+  usuario2       Usuario   @relation("ConversacionUsuario2", fields: [usuario2Id], references: [id])
+  orden          Orden?    @relation(fields: [ordenId], references: [id])
+  mensajes       Mensaje[]
+
+  @@map("conversacion")
+}
+
+model Mensaje {
+  id              Int          @id @default(autoincrement())
+  conversacionId  Int
+  remitenteId     Int
+  contenido       String       @db.Text
+  leido           Boolean      @default(false)
+  creadoEn        DateTime     @default(now())
+  leidoEn         DateTime?
+  
+  conversacion    Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  remitente       Usuario      @relation("MensajeRemitente", fields: [remitenteId], references: [id])
+
+  @@map("mensaje")
+}

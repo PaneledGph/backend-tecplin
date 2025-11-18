@@ -1,0 +1,282 @@
+{
+  "1": {
+    "total": 200,
+    "anomalias": 8,
+    "porcentaje": "4.00",
+    "mean": "51.05",
+    "std": "9.60",
+    "threshold": "19.20"
+  },
+  "2": {
+    "total": 200,
+    "anomalias": 2,
+    "porcentaje": "1.00",
+    "mean": "51.28",
+    "std": "19.88",
+    "threshold": "39.75"
+  },
+  "3": {
+    "total": 200,
+    "anomalias": 9,
+    "porcentaje": "4.50",
+    "mean": "50.80",
+    "std": "11.39",
+    "threshold": "22.78"
+  },
+  "4": {
+    "total": 200,
+    "anomalias": 13,
+    "porcentaje": "6.50",
+    "mean": "47.67",
+    "std": "11.35",
+    "threshold": "22.70"
+  },
+  "5": {
+    "total": 200,
+    "anomalias": 13,
+    "porcentaje": "6.50",
+    "mean": "49.52",
+    "std": "9.64",
+    "threshold": "19.29"
+  },
+  "6": {
+    "total": 198,
+    "anomalias": 11,
+    "porcentaje": "5.56",
+    "mean": "50.27",
+    "std": "8.94",
+    "threshold": "17.87"
+  },
+  "7": {
+    "total": 198,
+    "anomalias": 9,
+    "porcentaje": "4.55",
+    "mean": "50.55",
+    "std": "10.38",
+    "threshold": "20.77"
+  },
+  "8": {
+    "total": 198,
+    "anomalias": 11,
+    "porcentaje": "5.56",
+    "mean": "50.13",
+    "std": "9.56",
+    "threshold": "19.11"
+  },
+  "9": {
+    "total": 198,
+    "anomalias": 9,
+    "porcentaje": "4.55",
+    "mean": "49.78",
+    "std": "10.04",
+    "threshold": "20.08"
+  },
+  "10": {
+    "total": 198,
+    "anomalias": 6,
+    "porcentaje": "3.03",
+    "mean": "50.21",
+    "std": "10.11",
+    "threshold": "20.22"
+  },
+  "11": {
+    "total": 198,
+    "anomalias": 9,
+    "porcentaje": "4.55",
+    "mean": "49.86",
+    "std": "11.51",
+    "threshold": "23.01"
+  },
+  "12": {
+    "total": 198,
+    "anomalias": 9,
+    "porcentaje": "4.55",
+    "mean": "50.18",
+    "std": "9.62",
+    "threshold": "19.23"
+  },
+  "13": {
+    "total": 198,
+    "anomalias": 10,
+    "porcentaje": "5.05",
+    "mean": "49.65",
+    "std": "10.96",
+    "threshold": "21.93"
+  },
+  "14": {
+    "total": 198,
+    "anomalias": 9,
+    "porcentaje": "4.55",
+    "mean": "50.66",
+    "std": "9.19",
+    "threshold": "18.38"
+  },
+  "15": {
+    "total": 198,
+    "anomalias": 11,
+    "porcentaje": "5.56",
+    "mean": "49.55",
+    "std": "9.55",
+    "threshold": "19.10"
+  },
+  "16": {
+    "total": 139,
+    "anomalias": 7,
+    "porcentaje": "5.04",
+    "mean": "50.09",
+    "std": "9.93",
+    "threshold": "19.86"
+  },
+  "17": {
+    "total": 99,
+    "anomalias": 6,
+    "porcentaje": "6.06",
+    "mean": "51.00",
+    "std": "10.61",
+    "threshold": "21.21"
+  },
+  "18": {
+    "total": 99,
+    "anomalias": 4,
+    "porcentaje": "4.04",
+    "mean": "48.27",
+    "std": "10.57",
+    "threshold": "21.15"
+  },
+  "19": {
+    "total": 99,
+    "anomalias": 4,
+    "porcentaje": "4.04",
+    "mean": "49.22",
+    "std": "9.77",
+    "threshold": "19.53"
+  },
+  "20": {
+    "total": 99,
+    "anomalias": 6,
+    "porcentaje": "6.06",
+    "mean": "50.35",
+    "std": "9.76",
+    "threshold": "19.53"
+  },
+  "21": {
+    "total": 99,
+    "anomalias": 3,
+    "porcentaje": "3.03",
+    "mean": "48.84",
+    "std": "10.12",
+    "threshold": "20.24"
+  },
+  "22": {
+    "total": 99,
+    "anomalias": 2,
+    "porcentaje": "2.02",
+    "mean": "51.41",
+    "std": "10.32",
+    "threshold": "20.64"
+  },
+  "23": {
+    "total": 99,
+    "anomalias": 5,
+    "porcentaje": "5.05",
+    "mean": "49.84",
+    "std": "10.73",
+    "threshold": "21.45"
+  },
+  "24": {
+    "total": 99,
+    "anomalias": 4,
+    "porcentaje": "4.04",
+    "mean": "50.27",
+    "std": "9.62",
+    "threshold": "19.25"
+  },
+  "25": {
+    "total": 99,
+    "anomalias": 3,
+    "porcentaje": "3.03",
+    "mean": "52.22",
+    "std": "10.46",
+    "threshold": "20.92"
+  },
+  "26": {
+    "total": 99,
+    "anomalias": 7,
+    "porcentaje": "7.07",
+    "mean": "49.96",
+    "std": "9.50",
+    "threshold": "19.00"
+  },
+  "27": {
+    "total": 99,
+    "anomalias": 5,
+    "porcentaje": "5.05",
+    "mean": "48.51",
+    "std": "9.65",
+    "threshold": "19.29"
+  },
+  "28": {
+    "total": 99,
+    "anomalias": 7,
+    "porcentaje": "7.07",
+    "mean": "48.33",
+    "std": "9.95",
+    "threshold": "19.90"
+  },
+  "29": {
+    "total": 99,
+    "anomalias": 2,
+    "porcentaje": "2.02",
+    "mean": "50.87",
+    "std": "9.77",
+    "threshold": "19.53"
+  },
+  "30": {
+    "total": 99,
+    "anomalias": 3,
+    "porcentaje": "3.03",
+    "mean": "48.73",
+    "std": "9.71",
+    "threshold": "19.41"
+  },
+  "31": {
+    "total": 99,
+    "anomalias": 5,
+    "porcentaje": "5.05",
+    "mean": "50.05",
+    "std": "9.76",
+    "threshold": "19.52"
+  },
+  "32": {
+    "total": 99,
+    "anomalias": 4,
+    "porcentaje": "4.04",
+    "mean": "49.94",
+    "std": "9.96",
+    "threshold": "19.93"
+  },
+  "33": {
+    "total": 99,
+    "anomalias": 3,
+    "porcentaje": "3.03",
+    "mean": "50.89",
+    "std": "10.96",
+    "threshold": "21.92"
+  },
+  "34": {
+    "total": 99,
+    "anomalias": 4,
+    "porcentaje": "4.04",
+    "mean": "48.41",
+    "std": "10.35",
+    "threshold": "20.69"
+  },
+  "35": {
+    "total": 99,
+    "anomalias": 4,
+    "porcentaje": "4.04",
+    "mean": "48.65",
+    "std": "9.38",
+    "threshold": "18.75"
+  }
+}
