@@ -1,8 +1,7 @@
 import { Controller, Get, Post, Param, UseInterceptors, UploadedFile, Body, ParseIntPipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { EvidenciasService } from './evidencias.service';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
 
 @Controller('evidencias')
 export class EvidenciasController {
@@ -10,15 +9,7 @@ export class EvidenciasController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: './uploads/evidencias',
-      filename: (req, file, callback) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = extname(file.originalname);
-        const filename = `evidencia-${uniqueSuffix}${ext}`;
-        callback(null, filename);
-      },
-    }),
+    storage: memoryStorage(),
     fileFilter: (req, file, callback) => {
       if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
         return callback(new Error('Solo se permiten archivos de imagen'), false);
@@ -42,16 +33,15 @@ export class EvidenciasController {
       throw new Error('No se ha subido ningún archivo');
     }
 
-    const evidencia = await this.evidenciasService.create({
-      ordenid: parseInt(body.ordenId),
-      filename: file.filename, // Usar el nombre generado, no el original
-      filepath: file.path,
-      mimetype: file.mimetype,
-      size: file.size,
-      userid: body.userId,
-      userrole: body.userRole,
-      username: body.userName,
-    });
+    const evidencia = await this.evidenciasService.uploadEvidencia(
+      parseInt(body.ordenId, 10),
+      file,
+      {
+        userId: body.userId,
+        userRole: body.userRole,
+        userName: body.userName,
+      },
+    );
 
     return {
       message: 'Evidencia subida correctamente',

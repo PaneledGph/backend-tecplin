@@ -2,11 +2,15 @@ import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { Readable } from 'stream';
 import * as fs from 'fs';
+import axios from 'axios';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class PdfService {
+  constructor(private readonly storage: StorageService) {}
+
   async generarReporteOrden(orden: any): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         const doc = new PDFDocument({ size: 'LETTER', margin: 50 });
         const chunks: Buffer[] = [];
@@ -245,47 +249,59 @@ export class PdfService {
 
           for (const evidencia of orden.evidencias) {
             try {
-              // Verificar si el archivo existe
-              if (fs.existsSync(evidencia.filepath)) {
-                // Si ya agregamos 2 imágenes, crear nueva página
-                if (imagenesAgregadas > 0 && imagenesAgregadas % maxImagenesPorPagina === 0) {
-                  doc.addPage();
-                }
+              let imageBuffer: Buffer | null = null;
 
-                // Información de la evidencia
-                const fecha = new Date(evidencia.timestamp).toLocaleString('es-ES');
-                const usuario = evidencia.username || 'Usuario no especificado';
-                const rol = evidencia.userrole === 'cliente' ? '👤 Cliente' : '🔧 Técnico';
-
-                doc
-                  .fontSize(10)
-                  .font('Helvetica-Bold')
-                  .fillColor('#374151')
-                  .text(`${rol} - ${usuario}`);
-
-                doc
-                  .fontSize(9)
-                  .font('Helvetica')
-                  .fillColor('#6B7280')
-                  .text(fecha);
-
-                doc.moveDown(0.3);
-
-                // Agregar imagen
-                const imageWidth = 450;
-                const imageHeight = 300;
-                
-                doc.image(evidencia.filepath, {
-                  fit: [imageWidth, imageHeight],
-                  align: 'center',
-                });
-
-                doc.moveDown(1);
-                imagenesAgregadas++;
+              if (evidencia.filename) {
+                imageBuffer = await this.storage.getObjectBuffer(evidencia.filename);
               }
+
+              if (!imageBuffer && evidencia.filepath?.startsWith('http')) {
+                const response = await axios.get<ArrayBuffer>(evidencia.filepath, { responseType: 'arraybuffer' });
+                imageBuffer = Buffer.from(response.data);
+              }
+
+              if (!imageBuffer && evidencia.filepath && fs.existsSync(evidencia.filepath)) {
+                imageBuffer = fs.readFileSync(evidencia.filepath);
+              }
+
+              if (!imageBuffer) {
+                continue;
+              }
+
+              if (imagenesAgregadas > 0 && imagenesAgregadas % maxImagenesPorPagina === 0) {
+                doc.addPage();
+              }
+
+              const fecha = new Date(evidencia.timestamp).toLocaleString('es-ES');
+              const usuario = evidencia.username || 'Usuario no especificado';
+              const rol = evidencia.userrole === 'cliente' ? '👤 Cliente' : '🔧 Técnico';
+
+              doc
+                .fontSize(10)
+                .font('Helvetica-Bold')
+                .fillColor('#374151')
+                .text(`${rol} - ${usuario}`);
+
+              doc
+                .fontSize(9)
+                .font('Helvetica')
+                .fillColor('#6B7280')
+                .text(fecha);
+
+              doc.moveDown(0.3);
+
+              const imageWidth = 450;
+              const imageHeight = 300;
+
+              doc.image(imageBuffer, {
+                fit: [imageWidth, imageHeight],
+                align: 'center',
+              });
+
+              doc.moveDown(1);
+              imagenesAgregadas++;
             } catch (error) {
               console.error(`Error agregando imagen ${evidencia.filename}:`, error);
-              // Continuar con la siguiente imagen
             }
           }
 

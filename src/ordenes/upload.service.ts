@@ -2,18 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class UploadService {
-  // Directorio para guardar las fotos
-  private readonly uploadDir = path.join(process.cwd(), 'uploads', 'evidencias');
-
-  constructor(private prisma: PrismaService) {
-    // Crear directorio si no existe
-    if (!fs.existsSync(this.uploadDir)) {
-      fs.mkdirSync(this.uploadDir, { recursive: true });
-    }
-  }
+  constructor(
+    private prisma: PrismaService,
+    private storage: StorageService,
+  ) {}
 
   async guardarEvidencia(
     ordenId: number,
@@ -24,21 +20,17 @@ export class UploadService {
       userName: string;
     },
   ) {
-    // Generar nombre único para el archivo
     const timestamp = Date.now();
     const extension = path.extname(file.originalname);
-    const filename = `orden-${ordenId}-${timestamp}${extension}`;
-    const filepath = path.join(this.uploadDir, filename);
+    const key = path.posix.join('evidencias', `orden-${ordenId}-${timestamp}${extension}`);
 
-    // Guardar archivo físicamente
-    fs.writeFileSync(filepath, file.buffer);
+    const uploadResult = await this.storage.uploadFile(key, file.buffer, file.mimetype);
 
-    // Guardar metadata en la base de datos
     const evidencia = await this.prisma.evidencia.create({
       data: {
         ordenid: ordenId,
-        filename: filename,
-        filepath: filepath,
+        filename: key,
+        filepath: uploadResult.url,
         mimetype: file.mimetype,
         size: file.size,
         userid: metadata.userId,
@@ -52,10 +44,12 @@ export class UploadService {
   }
 
   async obtenerEvidencias(ordenId: number) {
-    return this.prisma.evidencia.findMany({
+    const evidencias = await this.prisma.evidencia.findMany({
       where: { ordenid: ordenId },
       orderBy: { timestamp: 'asc' },
     });
+
+    return evidencias.map((evidencia) => this.withPublicUrl(evidencia));
   }
 
   async eliminarEvidencia(id: number) {
@@ -64,8 +58,9 @@ export class UploadService {
     });
 
     if (evidencia) {
-      // Eliminar archivo físico
-      if (fs.existsSync(evidencia.filepath)) {
+      if (evidencia.filename) {
+        await this.storage.deleteFile(evidencia.filename);
+      } else if (evidencia.filepath && fs.existsSync(evidencia.filepath)) {
         fs.unlinkSync(evidencia.filepath);
       }
 
@@ -78,7 +73,14 @@ export class UploadService {
     return { success: true };
   }
 
-  getFilePath(filename: string): string {
-    return path.join(this.uploadDir, filename);
+  private withPublicUrl<T extends { filename: string; filepath: string | null }>(evidencia: T) {
+    const url = evidencia.filepath?.startsWith('http')
+      ? evidencia.filepath
+      : this.storage.getPublicUrl(evidencia.filename);
+
+    return {
+      ...evidencia,
+      url,
+    };
   }
 }

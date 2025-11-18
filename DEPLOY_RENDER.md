@@ -10,6 +10,13 @@ git commit -m "Preparar para despliegue en Render"
 git push origin main
 ```
 
+### 1.1 Paso a paso
+1. `git add .`
+2. `git commit -m "feat: despliegue render + storage"`
+3. `git push origin main`
+4. Entrar a Render → servicio backend → "Manual Deploy" → "Deploy latest commit".
+5. Revisar logs en Render para confirmar arranque (`storage` inicializado, `Nest application successfully started`).
+
 ### 2. Crear Cuenta en Render
 1. Ve a [render.com](https://render.com)
 2. Regístrate con GitHub
@@ -53,6 +60,17 @@ EMAIL_HOST=smtp.ethereal.email
 EMAIL_PORT=587
 EMAIL_USER=[Tu usuario de Ethereal]
 EMAIL_PASS=[Tu password de Ethereal]
+```
+
+#### Variables de Storage (Cloudflare R2)
+```
+STORAGE_BUCKET=tecplin-evidencias
+STORAGE_ACCOUNT_ID=[Tu ID de cuenta de Cloudflare]
+STORAGE_ENDPOINT=[Tu endpoint de Cloudflare]
+STORAGE_PUBLIC_URL=[Tu URL pública de Cloudflare]
+STORAGE_REGION=[Tu región de Cloudflare]
+STORAGE_ACCESS_KEY=[Tu access key de Cloudflare]
+STORAGE_SECRET_KEY=[Tu secret key de Cloudflare]
 ```
 
 ### 6. Desplegar

@@ -25,6 +25,8 @@
     "ml:setup": "npm run seed:analytics && npm run train:ml"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.933.0",
+    "@aws-sdk/s3-request-presigner": "^3.933.0",
     "@google/generative-ai": "^0.24.1",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.0.1",
