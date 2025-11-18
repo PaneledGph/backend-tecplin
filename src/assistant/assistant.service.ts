@@ -4,6 +4,7 @@ import { AssistantActionsService } from './assistant-actions.service';
 import { AssistantMLService } from './assistant-ml.service';
 import { AssistantLearningService } from './assistant-learning.service';
 import { AssistantHandlersService } from './assistant-handlers.service';
+import { TechnicianAssignmentService } from './technician-assignment.service';
 import Groq from 'groq-sdk';
 
 type ChatMsg = { role: 'system' | 'user' | 'assistant'; content: string };
@@ -18,6 +19,7 @@ export class AssistantService {
     private prisma: PrismaService,
     private learning: AssistantLearningService,
     private handlers: AssistantHandlersService,
+    private technicianAssignment: TechnicianAssignmentService,
   ) {
     this.groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   }
@@ -76,14 +78,23 @@ export class AssistantService {
   async procesarMensaje(userId: number, texto: string) {
     let respuesta = '';
     let autoFeedback = 0;
+    let intent = 'DESCONOCIDO';
 
     try {
       const contexto = await this.learning.obtenerContextoUsuario(userId);
       const history = await this.buildConversationContext(userId, 8);
 
       const userRole = await this.handlers.getUserRole(userId);
-      
-      const systemPrompt = `Eres un asistente técnico inteligente para gestión de órdenes de servicio.
+
+      const directAssignment = await this.tryDirectAssignment(userId, userRole, texto);
+      if (directAssignment) {
+        respuesta = directAssignment.respuesta;
+        autoFeedback = directAssignment.autoFeedback;
+        intent = directAssignment.intent;
+      }
+
+      if (!directAssignment) {
+        const systemPrompt = `Eres un asistente técnico inteligente para gestión de órdenes de servicio.
 
 ROL DEL USUARIO: ${userRole}
 MEMORIA: ${JSON.stringify(contexto)}
@@ -116,48 +127,48 @@ RESPONDE SOLO EN JSON ESTRICTO:
   "tecnicoId"?: number
 }`;
 
-      const messages: ChatMsg[] = [
-        { role: 'system', content: systemPrompt },
-        ...history, // contexto conversacional real
-        { role: 'user', content: texto },
-      ];
+        const messages: ChatMsg[] = [
+          { role: 'system', content: systemPrompt },
+          ...history, // contexto conversacional real
+          { role: 'user', content: texto },
+        ];
 
-      const aiResponse = await this.groq.chat.completions.create({
-        model: this.MODEL,
-        messages,
-      });
+        const aiResponse = await this.groq.chat.completions.create({
+          model: this.MODEL,
+          messages,
+        });
 
-      const raw = aiResponse.choices[0]?.message?.content ?? '{}';
-      const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+        const raw = aiResponse.choices[0]?.message?.content ?? '{}';
+        const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
 
-      let parsed: any;
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch {
-        parsed = { intent: 'DESCONOCIDO', respuesta: raw };
-      }
+        let parsed: any;
+        try {
+          parsed = JSON.parse(cleaned);
+        } catch {
+          parsed = { intent: 'DESCONOCIDO', respuesta: raw };
+        }
 
-      const intent = (parsed.intent || 'DESCONOCIDO').toUpperCase();
-      respuesta = parsed.respuesta || 'No entendí tu solicitud.';
+        intent = (parsed.intent || 'DESCONOCIDO').toUpperCase();
+        respuesta = parsed.respuesta || 'No entendí tu solicitud.';
 
-      // --------- LÓGICA POR INTENCIÓN (usando handlers) ----------
-      let handlerResult: any;
+        // --------- LÓGICA POR INTENCIÓN (usando handlers) ----------
+        let handlerResult: any;
 
-      switch (intent) {
-        case 'CREAR_ORDEN':
-          handlerResult = await this.handlers.handleCrearOrden(userId, parsed, userRole);
-          respuesta = handlerResult.respuesta;
-          autoFeedback = handlerResult.autoFeedback;
-          await this.guardarMemoria(userId, 'ultima_orden', parsed.descripcion || '');
-          await this.learning.registrarTemaPorContenido(userId, parsed.descripcion || '');
-          break;
+        switch (intent) {
+          case 'CREAR_ORDEN':
+            handlerResult = await this.handlers.handleCrearOrden(userId, parsed, userRole);
+            respuesta = handlerResult.respuesta;
+            autoFeedback = handlerResult.autoFeedback;
+            await this.guardarMemoria(userId, 'ultima_orden', parsed.descripcion || '');
+            await this.learning.registrarTemaPorContenido(userId, parsed.descripcion || '');
+            break;
 
-        case 'VER_ORDENES':
-          handlerResult = await this.handlers.handleVerOrdenes(userId, userRole);
-          respuesta = handlerResult.respuesta;
-          autoFeedback = handlerResult.autoFeedback;
-          await this.learning.registrarTemaPorContenido(userId, 'ver ordenes');
-          break;
+          case 'VER_ORDENES':
+            handlerResult = await this.handlers.handleVerOrdenes(userId, userRole);
+            respuesta = handlerResult.respuesta;
+            autoFeedback = handlerResult.autoFeedback;
+            await this.learning.registrarTemaPorContenido(userId, 'ver ordenes');
+            break;
 
         case 'MODIFICAR_ORDEN':
           handlerResult = await this.handlers.handleModificarOrden(userId, parsed, userRole);
@@ -183,15 +194,16 @@ RESPONDE SOLO EN JSON ESTRICTO:
           autoFeedback = handlerResult.autoFeedback;
           break;
 
-        case 'SALUDO':
-          respuesta = '¡Hola! ¿En qué puedo ayudarte hoy? 😊 Puedo crear órdenes, ver tus órdenes, consultar estados y más.';
-          autoFeedback = 1;
-          break;
+          case 'SALUDO':
+            respuesta = '¡Hola! ¿En qué puedo ayudarte hoy? 😊 Puedo crear órdenes, ver tus órdenes, consultar estados y más.';
+            autoFeedback = 1;
+            break;
 
-        default:
-          autoFeedback = -1;
-          await this.learning.registrarTemaPorContenido(userId, texto);
-          break;
+          default:
+            autoFeedback = -1;
+            await this.learning.registrarTemaPorContenido(userId, texto);
+            break;
+        }
       }
 
       // --------- SESIÓN & MENSAJES ----------
@@ -267,6 +279,142 @@ RESPONDE SOLO EN JSON ESTRICTO:
 
     await this.prisma.assistantFeedback.create({ data: { messageId, rating, note } });
     return { message: 'Feedback recibido. ¡Gracias!' };
+  }
+
+  private async tryDirectAssignment(userId: number, userRole: string, texto: string) {
+    if (userRole !== 'ADMIN') return null;
+
+    const command = texto.toLowerCase();
+    const isAssignmentCommand = (command.includes('asigna') || command.includes('asignar')) &&
+      (command.includes('técnico') || command.includes('tecnico'));
+
+    if (!isAssignmentCommand) return null;
+
+    const orderId = this.extractOrderId(texto);
+    const technicianName = this.extractTechnicianName(texto);
+
+    if (!orderId || !technicianName) {
+      return null;
+    }
+
+    try {
+      const technician = await this.technicianAssignment.findTechnicianByName(technicianName);
+      if (!technician) {
+        return {
+          intent: 'ASIGNAR_TECNICO',
+          respuesta: `No encontré al técnico ${technicianName}.`,
+          autoFeedback: -1,
+        };
+      }
+
+      const result = await this.technicianAssignment.assignTechnicianToOrder(orderId, technician.id);
+
+      return {
+        intent: 'ASIGNAR_TECNICO',
+        respuesta: result.message,
+        autoFeedback: result.success ? 1 : -1,
+      };
+    } catch (error) {
+      console.error('Error en asignación directa desde dashboard:', error);
+      return {
+        intent: 'ASIGNAR_TECNICO',
+        respuesta: 'Hubo un error al asignar el técnico solicitado.',
+        autoFeedback: -1,
+      };
+    }
+  }
+
+  private normalizeNumberWords(text: string): string {
+    if (!text) return '';
+
+    const replacements: Record<string, string> = {
+      'cero': '0',
+      'uno': '1',
+      'una': '1',
+      'un': '1',
+      'dos': '2',
+      'tres': '3',
+      'cuatro': '4',
+      'cinco': '5',
+      'seis': '6',
+      'siete': '7',
+      'ocho': '8',
+      'nueve': '9',
+      'diez': '10',
+      'once': '11',
+      'doce': '12',
+      'trece': '13',
+      'catorce': '14',
+      'quince': '15',
+      'dieciseis': '16',
+      'dieciséis': '16',
+      'diecisiete': '17',
+      'dieciocho': '18',
+      'diecinueve': '19',
+      'veinte': '20'
+    };
+
+    let normalized = text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    Object.entries(replacements).forEach(([word, digit]) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      normalized = normalized.replace(regex, digit);
+    });
+
+    return normalized;
+  }
+
+  private extractOrderId(text: string): number | null {
+    const normalizedText = this.normalizeNumberWords(text);
+    const matches = normalizedText.match(/\b(\d+)\b/);
+    return matches ? parseInt(matches[1]) : null;
+  }
+
+  private extractTechnicianName(text: string): string | null {
+    if (!text) return null;
+
+    const normalizedCommand = text.replace(/\s+/g, ' ').trim();
+    const pattern = /(?:orden|order)\s+[^\s]+.*?(?:a|al)\s+(?:t[eé]cnic[oa]\s+)?([a-záéíóúñ\s]+)$/i;
+    const match = normalizedCommand.match(pattern);
+
+    if (!match) {
+      return null;
+    }
+
+    let name = match[1]
+      .replace(/[.,;:]?$/g, '')
+      .replace(/\b(por favor|porfa|gracias|urgente|rápido|rapido)\b/gi, '')
+      .trim();
+
+    if (!name) {
+      return null;
+    }
+
+    const sanitized = name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    const forbiddenKeywords = [
+      'automatico',
+      'automatica',
+      'automaticamente',
+      'automático',
+      'automática',
+      'cercano',
+      'cerca',
+      'disponible',
+      'disponibles'
+    ];
+
+    if (forbiddenKeywords.some((word) => sanitized.includes(word))) {
+      return null;
+    }
+
+    return name;
   }
 
   // -------------------------------------------------------

@@ -29,40 +29,6 @@ export class ConversationFlowService {
    * Flujos de conversación predefinidos
    */
   private flows = {
-    ASSIGN_TECHNICIAN: {
-      steps: {
-        'ask_order': {
-          id: 'ask_order',
-          message: '¿A qué orden deseas asignar un técnico? Puedes decir el número de orden.',
-          expectedInputType: 'text',
-          nextStep: 'ask_assignment_criteria'
-        },
-        'ask_assignment_criteria': {
-          id: 'ask_assignment_criteria',
-          message: '¿Cómo quieres asignar el técnico? Puedes decir: "al técnico más cercano", "al más disponible", "automáticamente", o el nombre de un técnico específico.',
-          expectedInputType: 'selection',
-          options: [
-            'Al técnico más cercano',
-            'Al técnico más disponible', 
-            'A un técnico específico',
-            'Automáticamente'
-          ],
-          nextStep: 'process_assignment'
-        },
-        'ask_specific_technician': {
-          id: 'ask_specific_technician',
-          message: '¿A qué técnico específico quieres asignar?',
-          expectedInputType: 'text',
-          nextStep: 'process_assignment'
-        },
-        'process_assignment': {
-          id: 'process_assignment',
-          message: 'Perfecto, procesando la asignación ahora...',
-          expectedInputType: 'confirmation',
-          action: 'EXECUTE_ASSIGNMENT'
-        }
-      }
-    },
     CREATE_ORDER: {
       steps: {
         'ask_problem': {
@@ -189,12 +155,6 @@ export class ConversationFlowService {
     let nextStepKey = currentStep.nextStep;
     
     // Lógica especial para ciertos flujos
-    if (context.currentFlow === 'ASSIGN_TECHNICIAN' && currentStep.id === 'ask_assignment_criteria') {
-      if (userInput.toLowerCase().includes('específico')) {
-        nextStepKey = 'ask_specific_technician';
-      }
-    }
-
     context.step++;
     const nextStep = nextStepKey ? flow.steps[nextStepKey] : null;
 
@@ -243,6 +203,55 @@ export class ConversationFlowService {
     return null;
   }
 
+  private normalizeNumberWords(text: string): string {
+    if (!text) return '';
+
+    const replacements: Record<string, string> = {
+      'cero': '0',
+      'uno': '1',
+      'una': '1',
+      'un': '1',
+      'dos': '2',
+      'tres': '3',
+      'cuatro': '4',
+      'cinco': '5',
+      'seis': '6',
+      'siete': '7',
+      'ocho': '8',
+      'nueve': '9',
+      'diez': '10',
+      'once': '11',
+      'doce': '12',
+      'trece': '13',
+      'catorce': '14',
+      'quince': '15',
+      'dieciseis': '16',
+      'dieciséis': '16',
+      'diecisiete': '17',
+      'dieciocho': '18',
+      'diecinueve': '19',
+      'veinte': '20'
+    };
+
+    let normalized = text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    Object.entries(replacements).forEach(([word, digit]) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      normalized = normalized.replace(regex, digit);
+    });
+
+    return normalized;
+  }
+
+  private hasTechnicianName(text: string): boolean {
+    if (!text) return false;
+    const pattern = /(?:a|al)\s+(?:tecnico|tecnica)\s+[a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)?/i;
+    return pattern.test(text);
+  }
+
   /**
    * Cancela una conversación activa
    */
@@ -255,21 +264,24 @@ export class ConversationFlowService {
    */
   detectFlowIntent(userInput: string): string | null {
     const input = userInput.toLowerCase();
+    const normalizedNumbers = this.normalizeNumberWords(userInput);
+    const sanitized = userInput
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
     console.log('🔍 Detectando flow intent para:', input);
 
     if ((input.includes('asigna') || input.includes('asignar')) && (input.includes('técnico') || input.includes('tecnico'))) {
-      console.log('✅ Detectado: ASSIGN_TECHNICIAN');
-      
-      // Si ya tiene orden y criterio en el comando, usar flujo directo
-      const hasOrder = /\b(orden|order)\s*\d+\b/.test(input) || /\b\d+\b/.test(input);
-      const hasCriteria = input.includes('cercano') || input.includes('disponible') || input.includes('automático');
-      
-      if (hasOrder && hasCriteria) {
-        console.log('🚀 Comando completo detectado, ejecutando directamente');
+      const hasOrder = /\b(orden|order)\s*\d+\b/.test(normalizedNumbers) || /\b\d+\b/.test(normalizedNumbers);
+      const hasTechnicianReference = this.hasTechnicianName(sanitized);
+
+      if (hasOrder && hasTechnicianReference) {
+        console.log('🚀 Comando con orden y técnico detectado, usando asignación directa');
         return 'DIRECT_ASSIGNMENT';
       }
-      
-      return 'ASSIGN_TECHNICIAN';
+
+      console.log('⚠️ Comando de asignación sin orden o técnico válido, ignorando flujo');
+      return null;
     }
 
     if (input.includes('crear') && input.includes('orden')) {

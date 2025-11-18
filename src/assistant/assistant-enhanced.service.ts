@@ -38,6 +38,12 @@ export class AssistantEnhancedService {
   async handleAdvancedCommand(dto: AssistantCommandDto): Promise<AssistantResponse> {
     try {
       console.log('🤖 AssistantEnhanced - Comando recibido:', dto);
+
+      const directAssignment = await this.tryDirectAssignment(dto);
+      if (directAssignment) {
+        console.log('⚡️ Asignación directa detectada antes de flujos/IA');
+        return directAssignment;
+      }
       
       // 1. Verificar si hay una conversación activa
       const activeConversation = this.conversationFlow.getActiveConversation(dto.userId);
@@ -103,6 +109,33 @@ export class AssistantEnhancedService {
     }
   }
 
+  private async tryDirectAssignment(dto: AssistantCommandDto): Promise<AssistantResponse | null> {
+    if (dto.role !== 'ADMIN') {
+      return null;
+    }
+
+    const command = dto.text?.toLowerCase() || '';
+    const mentionsAssignment =
+      command.includes('asigna') ||
+      command.includes('asignar') ||
+      command.includes('asignación') ||
+      command.includes('asignacion');
+    const mentionsTechnician = command.includes('técnico') || command.includes('tecnico');
+
+    if (!mentionsAssignment || !mentionsTechnician) {
+      return null;
+    }
+
+    const orderId = this.extractOrderId(dto.text);
+
+    if (!orderId && !dto.activeOrderId) {
+      console.log('⚠️ Comando de asignación detectado pero no se encontró número de orden.');
+      return null;
+    }
+
+    return this.executeDirectAssignment(dto);
+  }
+
   /**
    * Inicia un flujo de conversación
    */
@@ -151,9 +184,6 @@ export class AssistantEnhancedService {
    */
   private async executeFlowAction(action: string, data: any): Promise<AssistantResponse> {
     switch (action) {
-      case 'EXECUTE_ASSIGNMENT':
-        return this.executeAssignment(data);
-      
       case 'EXECUTE_CREATE_ORDER':
         return this.executeCreateOrder(data);
       
@@ -189,7 +219,20 @@ export class AssistantEnhancedService {
 
       let result: AssignmentResult;
 
-      if (criteria.includes('cercano')) {
+      const technicianName = this.extractTechnicianName(dto.text);
+      if (technicianName) {
+        console.log('👤 Asignación directa a técnico específico:', technicianName);
+        const technician = await this.technicianAssignment.findTechnicianByName(technicianName);
+        if (technician) {
+          result = await this.technicianAssignment.assignTechnicianToOrder(orderId, technician.id);
+        } else {
+          result = {
+            success: false,
+            message: `No encontré al técnico ${technicianName}`,
+            error: 'TECHNICIAN_NOT_FOUND'
+          };
+        }
+      } else if (criteria.includes('cercano')) {
         console.log('📍 Asignación por proximidad...');
         const orden = await this.prisma.orden.findUnique({ where: { id: orderId } });
         
@@ -442,10 +485,104 @@ export class AssistantEnhancedService {
    */
   private extractOrderId(text: string): number | null {
     console.log('🔍 Extrayendo ID de orden del texto:', text);
-    const matches = text.match(/\b(\d+)\b/);
+    const normalizedText = this.normalizeNumberWords(text);
+    const matches = normalizedText.match(/\b(\d+)\b/);
     const orderId = matches ? parseInt(matches[1]) : null;
     console.log('📋 ID de orden extraído:', orderId);
     return orderId;
+  }
+
+  /**
+   * Reemplaza palabras numéricas básicas por dígitos para facilitar la detección
+   */
+  private normalizeNumberWords(text: string): string {
+    if (!text) return '';
+
+    const replacements: Record<string, string> = {
+      'cero': '0',
+      'uno': '1',
+      'una': '1',
+      'un': '1',
+      'dos': '2',
+      'tres': '3',
+      'cuatro': '4',
+      'cinco': '5',
+      'seis': '6',
+      'siete': '7',
+      'ocho': '8',
+      'nueve': '9',
+      'diez': '10',
+      'once': '11',
+      'doce': '12',
+      'trece': '13',
+      'catorce': '14',
+      'quince': '15',
+      'dieciseis': '16',
+      'dieciséis': '16',
+      'diecisiete': '17',
+      'dieciocho': '18',
+      'diecinueve': '19',
+      'veinte': '20'
+    };
+
+    let normalized = text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    Object.entries(replacements).forEach(([word, digit]) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      normalized = normalized.replace(regex, digit);
+    });
+
+    return normalized;
+  }
+
+  /**
+   * Intenta extraer el nombre del técnico a partir del comando
+   */
+  private extractTechnicianName(text: string): string | null {
+    if (!text) return null;
+
+    const normalizedCommand = text.replace(/\s+/g, ' ').trim();
+    const pattern = /(?:orden|order)\s+[^\s]+.*?(?:a|al)\s+(?:t[eé]cnic[oa]\s+)?([a-záéíóúñ\s]+)$/i;
+    const match = normalizedCommand.match(pattern);
+
+    if (!match) {
+      return null;
+    }
+
+    let name = match[1]
+      .replace(/[.,;:]?$/g, '')
+      .replace(/\b(por favor|porfa|gracias|urgente|rápido|rapido)\b/gi, '')
+      .trim();
+
+    if (!name) {
+      return null;
+    }
+
+    const sanitized = name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    const forbiddenKeywords = [
+      'automatico',
+      'automatica',
+      'automaticamente',
+      'automático',
+      'automática',
+      'cercano',
+      'cerca',
+      'disponible',
+      'disponibles'
+    ];
+
+    if (forbiddenKeywords.some((word) => sanitized.includes(word))) {
+      return null;
+    }
+
+    return name;
   }
 
   /**

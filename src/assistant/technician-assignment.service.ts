@@ -12,6 +12,7 @@ export interface TechnicianWithDistance {
   ubicacionLongitud?: number;
   distance?: number;
   ordenes_activas: number;
+  username?: string;
 }
 
 export interface AssignmentResult {
@@ -25,6 +26,16 @@ export interface AssignmentResult {
 @Injectable()
 export class TechnicianAssignmentService {
   constructor(private prisma: PrismaService) {}
+
+  private normalizeText(text?: string): string {
+    if (!text) return '';
+    return text
+      .toString()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
 
   /**
    * Calcula la distancia entre dos puntos geográficos (Haversine formula)
@@ -85,7 +96,8 @@ export class TechnicianAssignmentService {
         estado,
         ubicacionLatitud: tecnico.ubicacionActual?.lat,
         ubicacionLongitud: tecnico.ubicacionActual?.lng,
-        ordenes_activas: ordenesActivas
+        ordenes_activas: ordenesActivas,
+        username: tecnico.usuario.usuario
       };
     });
   }
@@ -137,10 +149,12 @@ export class TechnicianAssignmentService {
    */
   async findTechnicianByName(name: string): Promise<TechnicianWithDistance | null> {
     const tecnicos = await this.getTechniciansWithStatus();
+    const normalizedSearch = this.normalizeText(name);
     
     const found = tecnicos.find(t => 
-      t.nombre.toLowerCase().includes(name.toLowerCase()) ||
-      t.email.toLowerCase().includes(name.toLowerCase())
+      this.normalizeText(t.nombre).includes(normalizedSearch) ||
+      this.normalizeText(t.email).includes(normalizedSearch) ||
+      this.normalizeText(t.username).includes(normalizedSearch)
     );
 
     return found || null;
