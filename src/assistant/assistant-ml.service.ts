@@ -30,7 +30,7 @@ export class AssistantMLService {
   async entrenarPerfilUsuario(usuarioId: number): Promise<PerfilUsuario> {
     // Obtener historial de conversaciones
     // Usar AssistantSession en lugar de conversacion
-    const conversaciones = await this.prisma.assistantSession.findMany({
+    const conversaciones = (await this.prisma.assistantSession.findMany({
       where: { userId: usuarioId },
       include: {
         messages: {
@@ -40,7 +40,7 @@ export class AssistantMLService {
       },
       orderBy: { lastUsedAt: 'desc' },
       take: 50,
-    }) as any;
+    })) as any;
 
     // Analizar temas recurrentes
     const temasRecurrentes = this.analizarTemasRecurrentes(conversaciones);
@@ -49,10 +49,16 @@ export class AssistantMLService {
     const patronesUso = this.analizarPatronesUso(conversaciones);
 
     // Analizar satisfacción
-    const satisfaccion = await this.analizarSatisfaccion(usuarioId, conversaciones);
+    const satisfaccion = await this.analizarSatisfaccion(
+      usuarioId,
+      conversaciones,
+    );
 
     // Generar predicciones
-    const predicciones = this.generarPredicciones(temasRecurrentes, patronesUso);
+    const predicciones = this.generarPredicciones(
+      temasRecurrentes,
+      patronesUso,
+    );
 
     const perfil: PerfilUsuario = {
       usuarioId,
@@ -71,7 +77,9 @@ export class AssistantMLService {
   // -------------------------------------------------------
   // 📊 ANALIZAR TEMAS RECURRENTES
   // -------------------------------------------------------
-  private analizarTemasRecurrentes(conversaciones: any[]): { [tema: string]: number } {
+  private analizarTemasRecurrentes(conversaciones: any[]): {
+    [tema: string]: number;
+  } {
     const temas: { [key: string]: number } = {};
     const palabrasClave = {
       ordenes: ['orden', 'servicio', 'reparación', 'problema', 'solicitud'],
@@ -227,7 +235,9 @@ export class AssistantMLService {
     patronesUso: any,
   ): any {
     // Encontrar tema más recurrente
-    const temaTop = Object.entries(temasRecurrentes).sort((a, b) => b[1] - a[1])[0];
+    const temaTop = Object.entries(temasRecurrentes).sort(
+      (a, b) => b[1] - a[1],
+    )[0];
 
     if (!temaTop) {
       return {
@@ -237,7 +247,10 @@ export class AssistantMLService {
     }
 
     const [tema, frecuencia] = temaTop;
-    const totalMensajes = Object.values(temasRecurrentes).reduce((a, b) => a + b, 0);
+    const totalMensajes = Object.values(temasRecurrentes).reduce(
+      (a, b) => a + b,
+      0,
+    );
     const probabilidad = frecuencia / totalMensajes;
 
     const predicciones: { [key: string]: string } = {
@@ -300,12 +313,15 @@ export class AssistantMLService {
         ocurrenciasUltimos90Dias: total,
         promedioMensual: Math.round(promedioPorMes),
         prediccionProximoMes,
-        tendencia: prediccionProximoMes > promedioPorMes ? 'CRECIENTE' : 'ESTABLE',
+        tendencia:
+          prediccionProximoMes > promedioPorMes ? 'CRECIENTE' : 'ESTABLE',
       });
     }
 
     // Ordenar por predicción (mayor a menor)
-    predicciones.sort((a, b) => b.prediccionProximoMes - a.prediccionProximoMes);
+    predicciones.sort(
+      (a, b) => b.prediccionProximoMes - a.prediccionProximoMes,
+    );
 
     return {
       predicciones,
@@ -399,7 +415,9 @@ export class AssistantMLService {
         email: c.email,
         telefono: c.telefono,
         ordenesUltimos30Dias: c.orden?.length || 0,
-        tiposProblemas: [...new Set((c.orden || []).map((o: any) => o.tipoProblema))],
+        tiposProblemas: [
+          ...new Set((c.orden || []).map((o: any) => o.tipoProblema)),
+        ],
         necesitaAtencion: (c.orden?.length || 0) >= 5,
       }))
       .sort((a, b) => b.ordenesUltimos30Dias - a.ordenesUltimos30Dias);
@@ -431,7 +449,9 @@ export class AssistantMLService {
       },
     });
 
-    const tecnicosSobrecargados = tecnicos.filter((t) => (t.orden?.length || 0) > 5);
+    const tecnicosSobrecargados = tecnicos.filter(
+      (t) => (t.orden?.length || 0) > 5,
+    );
 
     if (tecnicosSobrecargados.length > 0) {
       acciones.push({

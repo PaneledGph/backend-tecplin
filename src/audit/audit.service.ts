@@ -24,7 +24,7 @@ export class AuditService {
           entidadId,
           detalles: detalles || undefined,
           ipAddress: undefined,
-          userAgent: undefined
+          userAgent: undefined,
         },
       });
 

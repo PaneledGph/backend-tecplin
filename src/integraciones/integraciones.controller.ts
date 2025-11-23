@@ -51,8 +51,13 @@ export class IntegracionesController {
   @Post('telegram/reporte-diario')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('ADMIN')
-  async enviarReporteDiario(@Body() body: { chatId: string; estadisticas: any }) {
-    return this.telegramService.enviarReporteDiario(body.chatId, body.estadisticas);
+  async enviarReporteDiario(
+    @Body() body: { chatId: string; estadisticas: any },
+  ) {
+    return this.telegramService.enviarReporteDiario(
+      body.chatId,
+      body.estadisticas,
+    );
   }
 
   // -------------------------------------------------------
@@ -69,6 +74,9 @@ export class IntegracionesController {
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('ADMIN', 'TECNICO')
   async crearEventoOrden(@Body() body: { orden: any; tecnico?: any }) {
-    return this.googleCalendarService.crearEventoOrden(body.orden, body.tecnico);
+    return this.googleCalendarService.crearEventoOrden(
+      body.orden,
+      body.tecnico,
+    );
   }
 }

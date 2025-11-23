@@ -40,7 +40,12 @@ export class AssistantLearningService {
 
       if (mensaje?.content.includes('orden')) {
         await this.prisma.assistantMemory.upsert({
-          where: { userId_key: { userId: mensaje.session.userId, key: 'tema_frecuente' } },
+          where: {
+            userId_key: {
+              userId: mensaje.session.userId,
+              key: 'tema_frecuente',
+            },
+          },
           update: { value: 'ordenes' },
           create: {
             userId: mensaje.session.userId,
@@ -73,8 +78,10 @@ export class AssistantLearningService {
     let tema = 'general';
 
     if (/(crear|nueva|registrar).*(orden|incidencia)/.test(t)) tema = 'ordenes';
-    else if (/(asignar|técnico|tecnico|disponibilidad)/.test(t)) tema = 'tecnicos';
-    else if (/(estado|progreso|en proceso|completado|pendiente)/.test(t)) tema = 'estado';
+    else if (/(asignar|técnico|tecnico|disponibilidad)/.test(t))
+      tema = 'tecnicos';
+    else if (/(estado|progreso|en proceso|completado|pendiente)/.test(t))
+      tema = 'estado';
     else if (/(prioridad|urgente|alta|media|baja)/.test(t)) tema = 'prioridad';
 
     await this.prisma.assistantMemory.upsert({

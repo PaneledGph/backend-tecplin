@@ -7,6 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 import { ChatModule } from '../chat/chat.module';
 import { StorageModule } from '../storage/storage.module';
+import { TechnicianAssignmentService } from '../assistant/technician-assignment.service';
 
 @Module({
   imports: [
@@ -16,7 +17,12 @@ import { StorageModule } from '../storage/storage.module';
     forwardRef(() => ChatModule),
   ],
   controllers: [OrdenesController],
-  providers: [OrdenesService, PdfService, UploadService],
+  providers: [
+    OrdenesService,
+    PdfService,
+    UploadService,
+    TechnicianAssignmentService,
+  ],
   exports: [OrdenesService],
 })
 export class OrdenesModule {}

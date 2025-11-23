@@ -10,7 +10,9 @@ async function fixTecnicos() {
     where: { rol: 'TECNICO' },
   });
 
-  console.log(`📋 Encontrados ${usuariosTecnicos.length} usuarios con rol TECNICO`);
+  console.log(
+    `📋 Encontrados ${usuariosTecnicos.length} usuarios con rol TECNICO`,
+  );
 
   for (const usuario of usuariosTecnicos) {
     // Verificar si ya existe un registro en la tabla tecnicos
@@ -27,9 +29,13 @@ async function fixTecnicos() {
           disponibilidad: 'DISPONIBLE',
         },
       });
-      console.log(`✅ Creado técnico para usuario: ${usuario.usuario} (ID: ${usuario.id})`);
+      console.log(
+        `✅ Creado técnico para usuario: ${usuario.usuario} (ID: ${usuario.id})`,
+      );
     } else {
-      console.log(`⏭️  Ya existe técnico para usuario: ${usuario.usuario} (ID: ${usuario.id})`);
+      console.log(
+        `⏭️  Ya existe técnico para usuario: ${usuario.usuario} (ID: ${usuario.id})`,
+      );
     }
   }
 
@@ -38,7 +44,9 @@ async function fixTecnicos() {
     where: { rol: 'CLIENTE' },
   });
 
-  console.log(`📋 Encontrados ${usuariosClientes.length} usuarios con rol CLIENTE`);
+  console.log(
+    `📋 Encontrados ${usuariosClientes.length} usuarios con rol CLIENTE`,
+  );
 
   for (const usuario of usuariosClientes) {
     const clienteExistente = await prisma.cliente.findUnique({
@@ -52,9 +60,13 @@ async function fixTecnicos() {
           nombre: usuario.usuario,
         },
       });
-      console.log(`✅ Creado cliente para usuario: ${usuario.usuario} (ID: ${usuario.id})`);
+      console.log(
+        `✅ Creado cliente para usuario: ${usuario.usuario} (ID: ${usuario.id})`,
+      );
     } else {
-      console.log(`⏭️  Ya existe cliente para usuario: ${usuario.usuario} (ID: ${usuario.id})`);
+      console.log(
+        `⏭️  Ya existe cliente para usuario: ${usuario.usuario} (ID: ${usuario.id})`,
+      );
     }
   }
 

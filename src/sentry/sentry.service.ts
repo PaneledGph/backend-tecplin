@@ -10,9 +10,7 @@ export class SentryService {
       Sentry.init({
         dsn: process.env.SENTRY_DSN,
         environment: process.env.NODE_ENV || 'development',
-        integrations: [
-          nodeProfilingIntegration(),
-        ],
+        integrations: [nodeProfilingIntegration()],
         // Performance Monitoring
         tracesSampleRate: 1.0, // 100% en desarrollo, reducir en producción
         // Profiling

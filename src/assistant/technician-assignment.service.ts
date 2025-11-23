@@ -40,21 +40,28 @@ export class TechnicianAssignmentService {
   /**
    * Calcula la distancia entre dos puntos geográficos (Haversine formula)
    */
-  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     const R = 6371; // Radio de la Tierra en km
     const dLat = this.deg2rad(lat2 - lat1);
     const dLon = this.deg2rad(lon2 - lon1);
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.deg2rad(lat1)) *
+        Math.cos(this.deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const d = R * c; // Distancia en km
     return d;
   }
 
   private deg2rad(deg: number): number {
-    return deg * (Math.PI/180);
+    return deg * (Math.PI / 180);
   }
 
   /**
@@ -67,23 +74,25 @@ export class TechnicianAssignmentService {
         orden: {
           where: {
             estado: {
-              in: ['ASIGNADO', 'EN_PROCESO']
-            }
-          }
+              in: ['ASIGNADO', 'EN_PROCESO'],
+            },
+          },
         },
-        ubicacionActual: true
-      }
+        ubicacionActual: true,
+      },
     });
 
-    return tecnicos.map(tecnico => {
+    return tecnicos.map((tecnico) => {
       const ordenesActivas = tecnico.orden.length;
       let estado: 'DISPONIBLE' | 'OCUPADO' = 'DISPONIBLE';
-      
+
       // Usar el estado de la base de datos si está disponible, sino calcularlo
       if (tecnico.disponibilidad === 'OCUPADO') {
         estado = 'OCUPADO';
       } else if (ordenesActivas > 0) {
-        const tieneEnProceso = tecnico.orden.some(o => o.estado === 'EN_PROCESO');
+        const tieneEnProceso = tecnico.orden.some(
+          (o) => o.estado === 'EN_PROCESO',
+        );
         estado = tieneEnProceso ? 'OCUPADO' : 'OCUPADO'; // Si tiene órdenes asignadas, está ocupado
       }
 
@@ -97,7 +106,7 @@ export class TechnicianAssignmentService {
         ubicacionLatitud: tecnico.ubicacionActual?.lat,
         ubicacionLongitud: tecnico.ubicacionActual?.lng,
         ordenes_activas: ordenesActivas,
-        username: tecnico.usuario.usuario
+        username: tecnico.usuario.usuario,
       };
     });
   }
@@ -105,20 +114,29 @@ export class TechnicianAssignmentService {
   /**
    * Encuentra el técnico más cercano disponible
    */
-  async findClosestAvailableTechnician(orderLat: number, orderLon: number): Promise<TechnicianWithDistance | null> {
+  async findClosestAvailableTechnician(
+    orderLat: number,
+    orderLon: number,
+  ): Promise<TechnicianWithDistance | null> {
     const tecnicos = await this.getTechniciansWithStatus();
-    const disponibles = tecnicos.filter(t => t.estado === 'DISPONIBLE');
+    const disponibles = tecnicos.filter((t) => t.estado === 'DISPONIBLE');
 
     if (disponibles.length === 0) {
       return null;
     }
 
     // Calcular distancias
-    const tecnicosConDistancia = disponibles.map(tecnico => ({
+    const tecnicosConDistancia = disponibles.map((tecnico) => ({
       ...tecnico,
-      distance: tecnico.ubicacionLatitud && tecnico.ubicacionLongitud 
-        ? this.calculateDistance(orderLat, orderLon, tecnico.ubicacionLatitud, tecnico.ubicacionLongitud)
-        : 999 // Si no tiene ubicación, poner distancia muy alta
+      distance:
+        tecnico.ubicacionLatitud && tecnico.ubicacionLongitud
+          ? this.calculateDistance(
+              orderLat,
+              orderLon,
+              tecnico.ubicacionLatitud,
+              tecnico.ubicacionLongitud,
+            )
+          : 999, // Si no tiene ubicación, poner distancia muy alta
     }));
 
     // Ordenar por distancia
@@ -132,7 +150,7 @@ export class TechnicianAssignmentService {
    */
   async findMostAvailableTechnician(): Promise<TechnicianWithDistance | null> {
     const tecnicos = await this.getTechniciansWithStatus();
-    const disponibles = tecnicos.filter(t => t.estado === 'DISPONIBLE');
+    const disponibles = tecnicos.filter((t) => t.estado === 'DISPONIBLE');
 
     if (disponibles.length === 0) {
       return null;
@@ -147,14 +165,17 @@ export class TechnicianAssignmentService {
   /**
    * Busca un técnico por nombre
    */
-  async findTechnicianByName(name: string): Promise<TechnicianWithDistance | null> {
+  async findTechnicianByName(
+    name: string,
+  ): Promise<TechnicianWithDistance | null> {
     const tecnicos = await this.getTechniciansWithStatus();
     const normalizedSearch = this.normalizeText(name);
-    
-    const found = tecnicos.find(t => 
-      this.normalizeText(t.nombre).includes(normalizedSearch) ||
-      this.normalizeText(t.email).includes(normalizedSearch) ||
-      this.normalizeText(t.username).includes(normalizedSearch)
+
+    const found = tecnicos.find(
+      (t) =>
+        this.normalizeText(t.nombre).includes(normalizedSearch) ||
+        this.normalizeText(t.email).includes(normalizedSearch) ||
+        this.normalizeText(t.username).includes(normalizedSearch),
     );
 
     return found || null;
@@ -163,33 +184,36 @@ export class TechnicianAssignmentService {
   /**
    * Asigna un técnico a una orden
    */
-  async assignTechnicianToOrder(orderId: number, technicianId: number): Promise<AssignmentResult> {
+  async assignTechnicianToOrder(
+    orderId: number,
+    technicianId: number,
+  ): Promise<AssignmentResult> {
     try {
       // Verificar que la orden existe
       const orden = await this.prisma.orden.findUnique({
         where: { id: orderId },
-        include: { cliente: true }
+        include: { cliente: true },
       });
 
       if (!orden) {
         return {
           success: false,
           message: `No se encontró la orden ${orderId}`,
-          error: 'ORDER_NOT_FOUND'
+          error: 'ORDER_NOT_FOUND',
         };
       }
 
       // Verificar que el técnico existe
       const tecnico = await this.prisma.tecnico.findUnique({
         where: { id: technicianId },
-        include: { usuario: true }
+        include: { usuario: true },
       });
 
       if (!tecnico) {
         return {
           success: false,
           message: `No se encontró el técnico con ID ${technicianId}`,
-          error: 'TECHNICIAN_NOT_FOUND'
+          error: 'TECHNICIAN_NOT_FOUND',
         };
       }
 
@@ -198,14 +222,14 @@ export class TechnicianAssignmentService {
         where: { id: orderId },
         data: {
           tecnicoid: technicianId,
-          estado: 'ASIGNADO'
+          estado: 'ASIGNADO',
         },
         include: {
           cliente: true,
           tecnico: {
-            include: { usuario: true }
-          }
-        }
+            include: { usuario: true },
+          },
+        },
       });
 
       return {
@@ -218,17 +242,16 @@ export class TechnicianAssignmentService {
           telefono: '',
           especialidad: tecnico.especialidad || 'General',
           estado: 'OCUPADO',
-          ordenes_activas: 1
+          ordenes_activas: 1,
         },
-        order: ordenActualizada
+        order: ordenActualizada,
       };
-
     } catch (error) {
       console.error('Error asignando técnico:', error);
       return {
         success: false,
         message: 'Error interno al asignar el técnico',
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -239,14 +262,14 @@ export class TechnicianAssignmentService {
   async autoAssignTechnician(orderId: number): Promise<AssignmentResult> {
     try {
       const orden = await this.prisma.orden.findUnique({
-        where: { id: orderId }
+        where: { id: orderId },
       });
 
       if (!orden) {
         return {
           success: false,
           message: `No se encontró la orden ${orderId}`,
-          error: 'ORDER_NOT_FOUND'
+          error: 'ORDER_NOT_FOUND',
         };
       }
 
@@ -255,8 +278,8 @@ export class TechnicianAssignmentService {
       // Si la orden tiene ubicación, buscar el más cercano
       if (orden.ubicacionLatitud && orden.ubicacionLongitud) {
         tecnico = await this.findClosestAvailableTechnician(
-          orden.ubicacionLatitud, 
-          orden.ubicacionLongitud
+          orden.ubicacionLatitud,
+          orden.ubicacionLongitud,
         );
       }
 
@@ -269,18 +292,17 @@ export class TechnicianAssignmentService {
         return {
           success: false,
           message: 'No hay técnicos disponibles en este momento',
-          error: 'NO_AVAILABLE_TECHNICIANS'
+          error: 'NO_AVAILABLE_TECHNICIANS',
         };
       }
 
       return await this.assignTechnicianToOrder(orderId, tecnico.id);
-
     } catch (error) {
       console.error('Error en asignación automática:', error);
       return {
         success: false,
         message: 'Error en la asignación automática',
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -292,11 +314,11 @@ export class TechnicianAssignmentService {
     try {
       const orden = await this.prisma.orden.findUnique({
         where: { id: orderId },
-        include: { 
+        include: {
           tecnico: {
-            include: { usuario: true }
-          }
-        }
+            include: { usuario: true },
+          },
+        },
       });
 
       if (orden && orden.tecnico) {
@@ -305,22 +327,24 @@ export class TechnicianAssignmentService {
           where: {
             tecnicoid: orden.tecnicoid,
             estado: {
-              in: ['ASIGNADO', 'EN_PROCESO']
+              in: ['ASIGNADO', 'EN_PROCESO'],
             },
             id: {
-              not: orderId // Excluir la orden que se está completando
-            }
-          }
+              not: orderId, // Excluir la orden que se está completando
+            },
+          },
         });
 
         // Si no tiene más órdenes activas, su estado vuelve a DISPONIBLE
-        console.log(`Técnico ${orden.tecnico.nombre} tiene ${ordenesActivas} órdenes activas restantes`);
-        
+        console.log(
+          `Técnico ${orden.tecnico.nombre} tiene ${ordenesActivas} órdenes activas restantes`,
+        );
+
         // Aquí podrías actualizar el estado en la tabla Tecnico si tuvieras un campo de estado
         if (ordenesActivas === 0) {
           await this.prisma.tecnico.update({
             where: { id: orden.tecnico.id },
-            data: { disponibilidad: 'DISPONIBLE' }
+            data: { disponibilidad: 'DISPONIBLE' },
           });
         }
       }

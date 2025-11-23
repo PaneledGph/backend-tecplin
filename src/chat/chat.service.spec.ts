@@ -49,7 +49,9 @@ describe('ChatService', () => {
         usuario2Id: 2,
       };
 
-      jest.spyOn(prismaService.conversacion, 'findFirst').mockResolvedValue(mockConversation as any);
+      jest
+        .spyOn(prismaService.conversacion, 'findFirst')
+        .mockResolvedValue(mockConversation as any);
 
       const result = await service.createConversation(1, 2);
 
@@ -64,8 +66,12 @@ describe('ChatService', () => {
         usuario2Id: 2,
       };
 
-      jest.spyOn(prismaService.conversacion, 'findFirst').mockResolvedValue(null);
-      jest.spyOn(prismaService.conversacion, 'create').mockResolvedValue(mockConversation as any);
+      jest
+        .spyOn(prismaService.conversacion, 'findFirst')
+        .mockResolvedValue(null);
+      jest
+        .spyOn(prismaService.conversacion, 'create')
+        .mockResolvedValue(mockConversation as any);
 
       const result = await service.createConversation(1, 2);
 
@@ -83,8 +89,12 @@ describe('ChatService', () => {
         contenido: 'Test message',
       };
 
-      jest.spyOn(prismaService.mensaje, 'create').mockResolvedValue(mockMessage as any);
-      jest.spyOn(prismaService.conversacion, 'update').mockResolvedValue({} as any);
+      jest
+        .spyOn(prismaService.mensaje, 'create')
+        .mockResolvedValue(mockMessage as any);
+      jest
+        .spyOn(prismaService.conversacion, 'update')
+        .mockResolvedValue({} as any);
 
       const result = await service.sendMessage(1, 1, 'Test message');
 
@@ -101,7 +111,9 @@ describe('ChatService', () => {
         { id: 2, usuario: 'tecnico1', rol: 'TECNICO' },
       ];
 
-      jest.spyOn(prismaService.usuario, 'findMany').mockResolvedValue(mockStaff as any);
+      jest
+        .spyOn(prismaService.usuario, 'findMany')
+        .mockResolvedValue(mockStaff as any);
 
       const result = await service.getAvailableStaff();
 

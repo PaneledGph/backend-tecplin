@@ -1,11 +1,4 @@
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  Get, 
-  UseGuards, 
-  Req 
-} from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
 import { AssistantService } from './assistant.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { RolesGuard } from 'src/auth/roles.guard';
@@ -56,7 +49,10 @@ export class AssistantController {
   async guardarAutoFeedback(
     @Body() body: { messageId: number; autoFeedback: number },
   ) {
-    return this.assistantService.guardarAutoFeedback(body.messageId, body.autoFeedback);
+    return this.assistantService.guardarAutoFeedback(
+      body.messageId,
+      body.autoFeedback,
+    );
   }
 
   /** 📊 Métricas del asistente (solo ADMIN) */

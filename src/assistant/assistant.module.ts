@@ -21,10 +21,10 @@ import { NotificacionesModule } from 'src/notificaciones/notificaciones.module';
 @Module({
   imports: [PrismaModule, NotificacionesModule],
   controllers: [
-    AssistantController, 
+    AssistantController,
     AssistantAdvancedController,
     AssistantGeminiController,
-    TechnicianStatusController
+    TechnicianStatusController,
   ],
   providers: [
     AssistantService,

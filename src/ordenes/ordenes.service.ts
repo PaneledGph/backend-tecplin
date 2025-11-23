@@ -1,9 +1,17 @@
-import { Injectable, Inject, forwardRef, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  forwardRef,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NotificacionesService } from 'src/notificaciones/notificaciones.service';
 import { NotificacionesGateway } from 'src/notificaciones/notificaciones.gateway';
 import { ChatService } from 'src/chat/chat.service';
 import { Estado, Prioridad } from '@prisma/client';
+import { TechnicianAssignmentService } from '../assistant/technician-assignment.service';
+import { PdfService } from './pdf.service';
 
 console.log('Estados disponibles:', Object.values(Estado));
 console.log('Prioridades disponibles:', Object.values(Prioridad));
@@ -16,6 +24,8 @@ export class OrdenesService {
     private notificacionesGateway: NotificacionesGateway,
     @Inject(forwardRef(() => ChatService))
     private chatService: ChatService,
+    private technicianAssignment: TechnicianAssignmentService,
+    private pdfService: PdfService,
   ) {}
 
   // Crear nueva orden
@@ -37,7 +47,7 @@ export class OrdenesService {
     costoEstimado?: number,
     tiempoEstimadoHoras?: number,
   ) {
-    return this.prisma.orden.create({
+    const orden = await this.prisma.orden.create({
       data: {
         descripcion,
         clienteid,
@@ -57,6 +67,22 @@ export class OrdenesService {
         tiempoEstimadoHoras,
       },
     });
+
+    try {
+      const assignment = await this.technicianAssignment.autoAssignTechnician(
+        orden.id,
+      );
+      if (assignment?.success && assignment.order) {
+        return assignment.order;
+      }
+    } catch (error) {
+      console.error(
+        'Error en autoasignación de técnico al crear orden:',
+        error,
+      );
+    }
+
+    return orden;
   }
 
   // Obtener todas las órdenes del cliente
@@ -69,11 +95,15 @@ export class OrdenesService {
   }
 
   // Obtener todas las órdenes (ADMIN o TECNICO) con paginación
-  async obtenerTodasOrdenes(page: number = 1, limit: number = 50, estado?: Estado) {
+  async obtenerTodasOrdenes(
+    page: number = 1,
+    limit: number = 50,
+    estado?: Estado,
+  ) {
     const skip = (page - 1) * limit;
-    
+
     const where = estado ? { estado } : {};
-    
+
     const [ordenes, total] = await Promise.all([
       this.prisma.orden.findMany({
         where,
@@ -157,7 +187,7 @@ export class OrdenesService {
     // 📬 Enviar notificación al técnico
     try {
       await this.notificacionesService.notificarTecnico(tecnicoid, ordenId);
-      
+
       // Broadcast en tiempo real
       this.notificacionesGateway.broadcastOrdenActualizada(ordenId, {
         estado: 'ASIGNADO',
@@ -182,18 +212,75 @@ export class OrdenesService {
       // No fallar la completación si falla el cierre del chat
     }
 
-    return this.prisma.orden.update({
+    const ordenActualizada = await this.prisma.orden.update({
       where: { id: ordenId },
       data: {
         estado: 'COMPLETADO',
         fechaCompletado: new Date(),
       },
-      include: { cliente: true, tecnico: true },
+      include: {
+        cliente: { include: { usuario: true } },
+        tecnico: true,
+        evidencias: true,
+      },
     });
+
+    let reportePdfUrl: string | undefined;
+
+    try {
+      const uploadResult =
+        await this.pdfService.generarYSubirReporteOrden(ordenActualizada);
+      if (uploadResult && uploadResult.url) {
+        reportePdfUrl = uploadResult.url;
+      }
+    } catch (error) {
+      console.error(
+        'Error generando o subiendo reporte PDF automático:',
+        error,
+      );
+    }
+
+    try {
+      const evidenciasCount = ordenActualizada.evidencias?.length || 0;
+
+      if (ordenActualizada.cliente?.id) {
+        const mensajeBase = `Tu orden #${ordenId} ha sido completada.`;
+        const mensajeEvidencias =
+          evidenciasCount === 0
+            ? ' Aún no se han registrado evidencias fotográficas del servicio.'
+            : ` Se registraron ${evidenciasCount} evidencias fotográficas del servicio.`;
+
+        let mensaje = `${mensajeBase}${mensajeEvidencias} Puedes calificar el servicio desde la app o hablando con el asistente.`;
+
+        if (reportePdfUrl) {
+          mensaje += ` También puedes descargar el reporte PDF del servicio aquí: ${reportePdfUrl}`;
+        }
+
+        await this.notificacionesService.notificarCliente(
+          ordenActualizada.cliente.id,
+          ordenId,
+          mensaje,
+        );
+      }
+    } catch (error) {
+      console.error(
+        'Error enviando notificación de calificación al completar orden:',
+        error,
+      );
+    }
+
+    return {
+      ...ordenActualizada,
+      ...(reportePdfUrl && { reportePdfUrl }),
+    };
   }
 
   // Calificar servicio
-  async calificarServicio(ordenId: number, calificacion: number, comentario?: string) {
+  async calificarServicio(
+    ordenId: number,
+    calificacion: number,
+    comentario?: string,
+  ) {
     // Validar calificación (1-5)
     if (calificacion < 1 || calificacion > 5) {
       throw new Error('La calificación debe estar entre 1 y 5');
@@ -226,8 +313,8 @@ export class OrdenesService {
   async obtenerOrdenPorId(ordenId: number) {
     return this.prisma.orden.findUnique({
       where: { id: ordenId },
-      include: { 
-        cliente: true, 
+      include: {
+        cliente: true,
         tecnico: true,
         evidencias: {
           orderBy: { timestamp: 'asc' },
@@ -262,7 +349,12 @@ export class OrdenesService {
   ) {
     const orden = await this.prisma.orden.findUnique({
       where: { id: ordenId },
-      select: { tecnicoid: true, estado: true },
+      select: {
+        tecnicoid: true,
+        estado: true,
+        ubicacionLatitud: true,
+        ubicacionLongitud: true,
+      },
     });
 
     if (!orden) {
@@ -289,6 +381,39 @@ export class OrdenesService {
       },
     });
 
+    // Auto-actualizar a EN_PROCESO si el técnico llega cerca de la ubicación del cliente
+    try {
+      if (
+        orden.estado === 'ASIGNADO' &&
+        orden.ubicacionLatitud != null &&
+        orden.ubicacionLongitud != null
+      ) {
+        const distanceKm = this.calculateDistance(
+          orden.ubicacionLatitud,
+          orden.ubicacionLongitud,
+          lat,
+          lng,
+        );
+
+        if (distanceKm <= 0.3) {
+          await this.prisma.orden.update({
+            where: { id: ordenId },
+            data: { estado: 'EN_PROCESO' },
+          });
+
+          this.notificacionesGateway.broadcastOrdenActualizada(ordenId, {
+            estado: 'EN_PROCESO',
+            tecnicoId,
+          });
+        }
+      }
+    } catch (error) {
+      console.error(
+        'Error auto-actualizando estado de orden según ubicación del técnico:',
+        error,
+      );
+    }
+
     return { ok: true };
   }
 
@@ -313,5 +438,28 @@ export class OrdenesService {
       totalPuntos: puntos.length,
       puntos,
     };
+  }
+
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const R = 6371; // km
+    const dLat = this.deg2rad(lat2 - lat1);
+    const dLon = this.deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.deg2rad(lat1)) *
+        Math.cos(this.deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  private deg2rad(deg: number): number {
+    return (deg * Math.PI) / 180;
   }
 }

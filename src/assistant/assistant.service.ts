@@ -27,7 +27,10 @@ export class AssistantService {
   // -------------------------------------------------------
   // 🔎  CONTEXTO: últimas N interacciones del usuario
   // -------------------------------------------------------
-  private async buildConversationContext(userId: number, limit = 8): Promise<ChatMsg[]> {
+  private async buildConversationContext(
+    userId: number,
+    limit = 8,
+  ): Promise<ChatMsg[]> {
     const session = await this.prisma.assistantSession.findFirst({
       where: { userId },
       include: {
@@ -86,7 +89,11 @@ export class AssistantService {
 
       const userRole = await this.handlers.getUserRole(userId);
 
-      const directAssignment = await this.tryDirectAssignment(userId, userRole, texto);
+      const directAssignment = await this.tryDirectAssignment(
+        userId,
+        userRole,
+        texto,
+      );
       if (directAssignment) {
         respuesta = directAssignment.respuesta;
         autoFeedback = directAssignment.autoFeedback;
@@ -139,7 +146,10 @@ RESPONDE SOLO EN JSON ESTRICTO:
         });
 
         const raw = aiResponse.choices[0]?.message?.content ?? '{}';
-        const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+        const cleaned = raw
+          .replace(/```json/g, '')
+          .replace(/```/g, '')
+          .trim();
 
         let parsed: any;
         try {
@@ -156,46 +166,79 @@ RESPONDE SOLO EN JSON ESTRICTO:
 
         switch (intent) {
           case 'CREAR_ORDEN':
-            handlerResult = await this.handlers.handleCrearOrden(userId, parsed, userRole);
+            handlerResult = await this.handlers.handleCrearOrden(
+              userId,
+              parsed,
+              userRole,
+            );
             respuesta = handlerResult.respuesta;
             autoFeedback = handlerResult.autoFeedback;
-            await this.guardarMemoria(userId, 'ultima_orden', parsed.descripcion || '');
-            await this.learning.registrarTemaPorContenido(userId, parsed.descripcion || '');
+            await this.guardarMemoria(
+              userId,
+              'ultima_orden',
+              parsed.descripcion || '',
+            );
+            await this.learning.registrarTemaPorContenido(
+              userId,
+              parsed.descripcion || '',
+            );
             break;
 
           case 'VER_ORDENES':
-            handlerResult = await this.handlers.handleVerOrdenes(userId, userRole);
+            handlerResult = await this.handlers.handleVerOrdenes(
+              userId,
+              userRole,
+            );
             respuesta = handlerResult.respuesta;
             autoFeedback = handlerResult.autoFeedback;
-            await this.learning.registrarTemaPorContenido(userId, 'ver ordenes');
+            await this.learning.registrarTemaPorContenido(
+              userId,
+              'ver ordenes',
+            );
             break;
 
-        case 'MODIFICAR_ORDEN':
-          handlerResult = await this.handlers.handleModificarOrden(userId, parsed, userRole);
-          respuesta = handlerResult.respuesta;
-          autoFeedback = handlerResult.autoFeedback;
-          break;
+          case 'MODIFICAR_ORDEN':
+            handlerResult = await this.handlers.handleModificarOrden(
+              userId,
+              parsed,
+              userRole,
+            );
+            respuesta = handlerResult.respuesta;
+            autoFeedback = handlerResult.autoFeedback;
+            break;
 
-        case 'CANCELAR_ORDEN':
-          handlerResult = await this.handlers.handleCancelarOrden(userId, parsed, userRole);
-          respuesta = handlerResult.respuesta;
-          autoFeedback = handlerResult.autoFeedback;
-          break;
+          case 'CANCELAR_ORDEN':
+            handlerResult = await this.handlers.handleCancelarOrden(
+              userId,
+              parsed,
+              userRole,
+            );
+            respuesta = handlerResult.respuesta;
+            autoFeedback = handlerResult.autoFeedback;
+            break;
 
-        case 'CONSULTAR_ESTADO':
-          handlerResult = await this.handlers.handleConsultarEstado(userId, parsed);
-          respuesta = handlerResult.respuesta;
-          autoFeedback = handlerResult.autoFeedback;
-          break;
+          case 'CONSULTAR_ESTADO':
+            handlerResult = await this.handlers.handleConsultarEstado(
+              userId,
+              parsed,
+            );
+            respuesta = handlerResult.respuesta;
+            autoFeedback = handlerResult.autoFeedback;
+            break;
 
-        case 'ASIGNAR_TECNICO':
-          handlerResult = await this.handlers.handleAsignarTecnico(userId, parsed, userRole);
-          respuesta = handlerResult.respuesta;
-          autoFeedback = handlerResult.autoFeedback;
-          break;
+          case 'ASIGNAR_TECNICO':
+            handlerResult = await this.handlers.handleAsignarTecnico(
+              userId,
+              parsed,
+              userRole,
+            );
+            respuesta = handlerResult.respuesta;
+            autoFeedback = handlerResult.autoFeedback;
+            break;
 
           case 'SALUDO':
-            respuesta = '¡Hola! ¿En qué puedo ayudarte hoy? 😊 Puedo crear órdenes, ver tus órdenes, consultar estados y más.';
+            respuesta =
+              '¡Hola! ¿En qué puedo ayudarte hoy? 😊 Puedo crear órdenes, ver tus órdenes, consultar estados y más.';
             autoFeedback = 1;
             break;
 
@@ -207,9 +250,13 @@ RESPONDE SOLO EN JSON ESTRICTO:
       }
 
       // --------- SESIÓN & MENSAJES ----------
-      let session = await this.prisma.assistantSession.findFirst({ where: { userId } });
+      let session = await this.prisma.assistantSession.findFirst({
+        where: { userId },
+      });
       if (!session) {
-        session = await this.prisma.assistantSession.create({ data: { userId } });
+        session = await this.prisma.assistantSession.create({
+          data: { userId },
+        });
       } else {
         await this.prisma.assistantSession.update({
           where: { id: session.id },
@@ -250,10 +297,15 @@ RESPONDE SOLO EN JSON ESTRICTO:
   // 🔧 APOYO
   // -------------------------------------------------------
   async guardarAutoFeedback(messageId: number, autoFeedback: number) {
-    const mensaje = await this.prisma.assistantMessage.findUnique({ where: { id: messageId } });
+    const mensaje = await this.prisma.assistantMessage.findUnique({
+      where: { id: messageId },
+    });
     if (!mensaje) throw new Error(`No existe un mensaje con ID ${messageId}`);
 
-    await this.prisma.assistantMessage.update({ where: { id: messageId }, data: { autoFeedback } });
+    await this.prisma.assistantMessage.update({
+      where: { id: messageId },
+      data: { autoFeedback },
+    });
     return { message: 'AutoFeedback actualizado correctamente ✅' };
   }
 
@@ -274,18 +326,27 @@ RESPONDE SOLO EN JSON ESTRICTO:
   }
 
   async guardarFeedback(messageId: number, rating: number, note?: string) {
-    const mensaje = await this.prisma.assistantMessage.findUnique({ where: { id: messageId } });
+    const mensaje = await this.prisma.assistantMessage.findUnique({
+      where: { id: messageId },
+    });
     if (!mensaje) throw new Error(`No existe un mensaje con ID ${messageId}`);
 
-    await this.prisma.assistantFeedback.create({ data: { messageId, rating, note } });
+    await this.prisma.assistantFeedback.create({
+      data: { messageId, rating, note },
+    });
     return { message: 'Feedback recibido. ¡Gracias!' };
   }
 
-  private async tryDirectAssignment(userId: number, userRole: string, texto: string) {
+  private async tryDirectAssignment(
+    userId: number,
+    userRole: string,
+    texto: string,
+  ) {
     if (userRole !== 'ADMIN') return null;
 
     const command = texto.toLowerCase();
-    const isAssignmentCommand = (command.includes('asigna') || command.includes('asignar')) &&
+    const isAssignmentCommand =
+      (command.includes('asigna') || command.includes('asignar')) &&
       (command.includes('técnico') || command.includes('tecnico'));
 
     if (!isAssignmentCommand) return null;
@@ -298,7 +359,8 @@ RESPONDE SOLO EN JSON ESTRICTO:
     }
 
     try {
-      const technician = await this.technicianAssignment.findTechnicianByName(technicianName);
+      const technician =
+        await this.technicianAssignment.findTechnicianByName(technicianName);
       if (!technician) {
         return {
           intent: 'ASIGNAR_TECNICO',
@@ -307,7 +369,10 @@ RESPONDE SOLO EN JSON ESTRICTO:
         };
       }
 
-      const result = await this.technicianAssignment.assignTechnicianToOrder(orderId, technician.id);
+      const result = await this.technicianAssignment.assignTechnicianToOrder(
+        orderId,
+        technician.id,
+      );
 
       return {
         intent: 'ASIGNAR_TECNICO',
@@ -328,30 +393,30 @@ RESPONDE SOLO EN JSON ESTRICTO:
     if (!text) return '';
 
     const replacements: Record<string, string> = {
-      'cero': '0',
-      'uno': '1',
-      'una': '1',
-      'un': '1',
-      'dos': '2',
-      'tres': '3',
-      'cuatro': '4',
-      'cinco': '5',
-      'seis': '6',
-      'siete': '7',
-      'ocho': '8',
-      'nueve': '9',
-      'diez': '10',
-      'once': '11',
-      'doce': '12',
-      'trece': '13',
-      'catorce': '14',
-      'quince': '15',
-      'dieciseis': '16',
-      'dieciséis': '16',
-      'diecisiete': '17',
-      'dieciocho': '18',
-      'diecinueve': '19',
-      'veinte': '20'
+      cero: '0',
+      uno: '1',
+      una: '1',
+      un: '1',
+      dos: '2',
+      tres: '3',
+      cuatro: '4',
+      cinco: '5',
+      seis: '6',
+      siete: '7',
+      ocho: '8',
+      nueve: '9',
+      diez: '10',
+      once: '11',
+      doce: '12',
+      trece: '13',
+      catorce: '14',
+      quince: '15',
+      dieciseis: '16',
+      dieciséis: '16',
+      diecisiete: '17',
+      dieciocho: '18',
+      diecinueve: '19',
+      veinte: '20',
     };
 
     let normalized = text
@@ -377,14 +442,15 @@ RESPONDE SOLO EN JSON ESTRICTO:
     if (!text) return null;
 
     const normalizedCommand = text.replace(/\s+/g, ' ').trim();
-    const pattern = /(?:orden|order)\s+[^\s]+.*?(?:a|al)\s+(?:t[eé]cnic[oa]\s+)?([a-záéíóúñ\s]+)$/i;
+    const pattern =
+      /(?:orden|order)\s+[^\s]+.*?(?:a|al)\s+(?:t[eé]cnic[oa]\s+)?([a-záéíóúñ\s]+)$/i;
     const match = normalizedCommand.match(pattern);
 
     if (!match) {
       return null;
     }
 
-    let name = match[1]
+    const name = match[1]
       .replace(/[.,;:]?$/g, '')
       .replace(/\b(por favor|porfa|gracias|urgente|rápido|rapido)\b/gi, '')
       .trim();
@@ -407,7 +473,7 @@ RESPONDE SOLO EN JSON ESTRICTO:
       'cercano',
       'cerca',
       'disponible',
-      'disponibles'
+      'disponibles',
     ];
 
     if (forbiddenKeywords.some((word) => sanitized.includes(word))) {
@@ -425,7 +491,9 @@ RESPONDE SOLO EN JSON ESTRICTO:
       throw new Error('Acceso denegado: solo administradores');
     }
 
-    const totalMensajes = await this.prisma.assistantMessage.count({ where: { role: 'user' } });
+    const totalMensajes = await this.prisma.assistantMessage.count({
+      where: { role: 'user' },
+    });
 
     const intenciones = await this.prisma.assistantMessage.groupBy({
       by: ['intent'],
@@ -502,7 +570,9 @@ RESPONDE SOLO EN JSON ESTRICTO:
 
     // --- util local ---
     function isoWeek(date: Date) {
-      const tmp = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+      const tmp = new Date(
+        Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+      );
       const dayNum = tmp.getUTCDay() || 7;
       tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
       const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));

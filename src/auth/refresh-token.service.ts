@@ -16,7 +16,7 @@ export class RefreshTokenService {
   async generarRefreshToken(usuarioId: number): Promise<string> {
     // Generar token aleatorio seguro
     const token = crypto.randomBytes(64).toString('hex');
-    
+
     // Fecha de expiración (30 días)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
@@ -107,14 +107,13 @@ export class RefreshTokenService {
     const now = new Date();
     const result = await this.prisma.refreshToken.deleteMany({
       where: {
-        OR: [
-          { expiresAt: { lt: now } },
-          { revocado: true },
-        ],
+        OR: [{ expiresAt: { lt: now } }, { revocado: true }],
       },
     });
 
-    console.log(`🧹 Limpiados ${result.count} refresh tokens expirados/revocados`);
+    console.log(
+      `🧹 Limpiados ${result.count} refresh tokens expirados/revocados`,
+    );
     return result.count;
   }
 }

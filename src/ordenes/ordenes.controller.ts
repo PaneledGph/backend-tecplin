@@ -1,4 +1,19 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, Query, Res, BadRequestException, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+  Query,
+  Res,
+  BadRequestException,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { OrdenesService } from './ordenes.service';
@@ -27,7 +42,8 @@ export class OrdenesController {
   @Roles('CLIENTE', 'ADMIN')
   async crearOrden(
     @Req() req,
-    @Body() body: {
+    @Body()
+    body: {
       descripcion: string;
       ubicacion?: string;
       ubicacionLatitud?: number;
@@ -61,7 +77,9 @@ export class OrdenesController {
       });
 
       if (!cliente) {
-        throw new BadRequestException('El usuario no tiene un cliente asociado.');
+        throw new BadRequestException(
+          'El usuario no tiene un cliente asociado.',
+        );
       }
 
       clienteIdFinal = cliente.id;
@@ -118,13 +136,19 @@ export class OrdenesController {
 
   @Patch(':id/estado')
   @Roles('ADMIN', 'TECNICO')
-  actualizarEstado(@Param('id') id: string, @Body() body: ActualizarEstadoOrdenDto) {
+  actualizarEstado(
+    @Param('id') id: string,
+    @Body() body: ActualizarEstadoOrdenDto,
+  ) {
     return this.ordenesService.actualizarEstado(Number(id), body.estado);
   }
 
   @Patch(':id/asignar-tecnico')
   @Roles('ADMIN')
-  asignarTecnico(@Param('id') id: string, @Body('tecnicoId') tecnicoId: number) {
+  asignarTecnico(
+    @Param('id') id: string,
+    @Body('tecnicoId') tecnicoId: number,
+  ) {
     return this.ordenesService.asignarTecnico(Number(id), Number(tecnicoId));
   }
 
@@ -150,10 +174,14 @@ export class OrdenesController {
     @Req() req,
   ) {
     const usuarioId = req.user.sub;
-    const tecnico = await this.prisma.tecnico.findUnique({ where: { usuarioid: usuarioId } });
+    const tecnico = await this.prisma.tecnico.findUnique({
+      where: { usuarioid: usuarioId },
+    });
 
     if (!tecnico) {
-      throw new BadRequestException('No se encontró un técnico asociado al usuario.');
+      throw new BadRequestException(
+        'No se encontró un técnico asociado al usuario.',
+      );
     }
 
     return this.ordenesService.registrarUbicacionTecnico(
@@ -179,7 +207,11 @@ export class OrdenesController {
     @Body('calificacion') calificacion: number,
     @Body('comentario') comentario?: string,
   ) {
-    return this.ordenesService.calificarServicio(Number(id), calificacion, comentario);
+    return this.ordenesService.calificarServicio(
+      Number(id),
+      calificacion,
+      comentario,
+    );
   }
 
   // Obtener detalle de una orden
@@ -194,7 +226,8 @@ export class OrdenesController {
   @Roles('ADMIN', 'TECNICO', 'CLIENTE')
   async actualizarOrden(
     @Param('id') id: string,
-    @Body() body: {
+    @Body()
+    body: {
       descripcion?: string;
       ubicacion?: string;
       ubicacionLatitud?: number;

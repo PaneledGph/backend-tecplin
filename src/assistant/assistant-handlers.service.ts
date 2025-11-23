@@ -16,14 +16,20 @@ export class AssistantHandlersService {
   // 🆕 CREAR ORDEN
   // -------------------------------------------------------
   async handleCrearOrden(userId: number, data: OrdenData, userRole?: string) {
-    const { descripcion, prioridad, ubicacion, tipoProblema, especialidadRequerida } = data;
+    const {
+      descripcion,
+      prioridad,
+      ubicacion,
+      tipoProblema,
+      especialidadRequerida,
+    } = data;
 
     let clienteId: number;
 
     if (userRole === 'ADMIN') {
       // Admin puede crear órdenes, usar el primer cliente disponible o crear para un cliente específico
       const primerCliente = await this.prisma.cliente.findFirst();
-      
+
       if (!primerCliente) {
         return {
           intent: 'CREAR_ORDEN',
@@ -31,7 +37,7 @@ export class AssistantHandlersService {
           autoFeedback: -1,
         };
       }
-      
+
       clienteId = primerCliente.id;
     } else {
       // Cliente crea su propia orden
@@ -78,13 +84,18 @@ export class AssistantHandlersService {
   // -------------------------------------------------------
   // ✏️ MODIFICAR ORDEN
   // -------------------------------------------------------
-  async handleModificarOrden(userId: number, data: OrdenData, userRole: string) {
+  async handleModificarOrden(
+    userId: number,
+    data: OrdenData,
+    userRole: string,
+  ) {
     const { ordenId, descripcion, prioridad, ubicacion } = data;
 
     if (!ordenId) {
       return {
         intent: 'MODIFICAR_ORDEN',
-        respuesta: 'Por favor especifica el número de orden que deseas modificar.',
+        respuesta:
+          'Por favor especifica el número de orden que deseas modificar.',
         autoFeedback: -1,
       };
     }
@@ -131,7 +142,9 @@ export class AssistantHandlersService {
       });
     }
 
-    this.notificacionesGateway.broadcastOrdenActualizada(ordenId, { estado: orden.estado });
+    this.notificacionesGateway.broadcastOrdenActualizada(ordenId, {
+      estado: orden.estado,
+    });
 
     return {
       intent: 'MODIFICAR_ORDEN',
@@ -149,7 +162,8 @@ export class AssistantHandlersService {
     if (!ordenId) {
       return {
         intent: 'CANCELAR_ORDEN',
-        respuesta: 'Por favor especifica el número de orden que deseas cancelar.',
+        respuesta:
+          'Por favor especifica el número de orden que deseas cancelar.',
         autoFeedback: -1,
       };
     }
@@ -201,7 +215,11 @@ export class AssistantHandlersService {
   // -------------------------------------------------------
   // 🔧 ASIGNAR TÉCNICO
   // -------------------------------------------------------
-  async handleAsignarTecnico(userId: number, data: OrdenData, userRole: string) {
+  async handleAsignarTecnico(
+    userId: number,
+    data: OrdenData,
+    userRole: string,
+  ) {
     if (userRole !== 'ADMIN') {
       return {
         intent: 'ASIGNAR_TECNICO',
@@ -223,7 +241,9 @@ export class AssistantHandlersService {
     let tecnico;
 
     if (tecnicoId) {
-      tecnico = await this.prisma.tecnico.findUnique({ where: { id: tecnicoId } });
+      tecnico = await this.prisma.tecnico.findUnique({
+        where: { id: tecnicoId },
+      });
     } else {
       // 🧠 Buscar técnico más adecuado
       tecnico = await this.findBestTechnician(especialidadRequerida);
@@ -322,7 +342,7 @@ export class AssistantHandlersService {
       const tecnico = await this.prisma.tecnico.findUnique({
         where: { usuarioid: userId },
       });
-      
+
       if (!tecnico) {
         return {
           intent: 'VER_ORDENES',

@@ -63,7 +63,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     try {
       console.log('📨 Recibiendo mensaje:', data);
-      
+
       // Guardar mensaje en BD
       const mensaje = await this.chatService.sendMessage(
         data.conversacionId,

@@ -55,8 +55,16 @@ export class PdfService {
         const infoGeneral = [
           ['Estado:', orden.estado],
           ['Prioridad:', orden.prioridad],
-          ['Fecha de Solicitud:', new Date(orden.fechasolicitud).toLocaleString('es-ES')],
-          ['Fecha de Completado:', orden.fechaCompletado ? new Date(orden.fechaCompletado).toLocaleString('es-ES') : 'N/A'],
+          [
+            'Fecha de Solicitud:',
+            new Date(orden.fechasolicitud).toLocaleString('es-ES'),
+          ],
+          [
+            'Fecha de Completado:',
+            orden.fechaCompletado
+              ? new Date(orden.fechaCompletado).toLocaleString('es-ES')
+              : 'N/A',
+          ],
         ];
 
         this.drawTable(doc, infoGeneral);
@@ -138,9 +146,7 @@ export class PdfService {
 
           doc.moveDown(0.5);
 
-          const infoUbicacion = [
-            ['Dirección:', orden.ubicacion],
-          ];
+          const infoUbicacion = [['Dirección:', orden.ubicacion]];
 
           if (orden.ubicacionLatitud && orden.ubicacionLongitud) {
             infoUbicacion.push([
@@ -168,13 +174,19 @@ export class PdfService {
           detallesServicio.push(['Tipo de Problema:', orden.tipoProblema]);
         }
         if (orden.especialidadRequerida) {
-          detallesServicio.push(['Especialidad Requerida:', orden.especialidadRequerida]);
+          detallesServicio.push([
+            'Especialidad Requerida:',
+            orden.especialidadRequerida,
+          ]);
         }
         if (orden.horarioPreferido) {
           detallesServicio.push(['Horario Preferido:', orden.horarioPreferido]);
         }
         if (orden.materialesRequeridos) {
-          detallesServicio.push(['Materiales Requeridos:', orden.materialesRequeridos]);
+          detallesServicio.push([
+            'Materiales Requeridos:',
+            orden.materialesRequeridos,
+          ]);
         }
 
         if (detallesServicio.length > 0) {
@@ -204,13 +216,22 @@ export class PdfService {
         const costosYTiempos: string[][] = [];
 
         if (orden.costoEstimado) {
-          costosYTiempos.push(['Costo Estimado:', `$${orden.costoEstimado.toFixed(2)}`]);
+          costosYTiempos.push([
+            'Costo Estimado:',
+            `$${orden.costoEstimado.toFixed(2)}`,
+          ]);
         }
         if (orden.costoFinal) {
-          costosYTiempos.push(['Costo Final:', `$${orden.costoFinal.toFixed(2)}`]);
+          costosYTiempos.push([
+            'Costo Final:',
+            `$${orden.costoFinal.toFixed(2)}`,
+          ]);
         }
         if (orden.tiempoEstimadoHoras) {
-          costosYTiempos.push(['Tiempo Estimado:', `${orden.tiempoEstimadoHoras} horas`]);
+          costosYTiempos.push([
+            'Tiempo Estimado:',
+            `${orden.tiempoEstimadoHoras} horas`,
+          ]);
         }
 
         if (costosYTiempos.length > 0) {
@@ -239,7 +260,9 @@ export class PdfService {
             .fontSize(11)
             .font('Helvetica')
             .fillColor('#374151')
-            .text(`Se registraron ${orden.evidencias.length} fotografías como evidencia del servicio.`);
+            .text(
+              `Se registraron ${orden.evidencias.length} fotografías como evidencia del servicio.`,
+            );
 
           doc.moveDown(1);
 
@@ -252,15 +275,24 @@ export class PdfService {
               let imageBuffer: Buffer | null = null;
 
               if (evidencia.filename) {
-                imageBuffer = await this.storage.getObjectBuffer(evidencia.filename);
+                imageBuffer = await this.storage.getObjectBuffer(
+                  evidencia.filename,
+                );
               }
 
               if (!imageBuffer && evidencia.filepath?.startsWith('http')) {
-                const response = await axios.get<ArrayBuffer>(evidencia.filepath, { responseType: 'arraybuffer' });
+                const response = await axios.get<ArrayBuffer>(
+                  evidencia.filepath,
+                  { responseType: 'arraybuffer' },
+                );
                 imageBuffer = Buffer.from(response.data);
               }
 
-              if (!imageBuffer && evidencia.filepath && fs.existsSync(evidencia.filepath)) {
+              if (
+                !imageBuffer &&
+                evidencia.filepath &&
+                fs.existsSync(evidencia.filepath)
+              ) {
                 imageBuffer = fs.readFileSync(evidencia.filepath);
               }
 
@@ -268,13 +300,19 @@ export class PdfService {
                 continue;
               }
 
-              if (imagenesAgregadas > 0 && imagenesAgregadas % maxImagenesPorPagina === 0) {
+              if (
+                imagenesAgregadas > 0 &&
+                imagenesAgregadas % maxImagenesPorPagina === 0
+              ) {
                 doc.addPage();
               }
 
-              const fecha = new Date(evidencia.timestamp).toLocaleString('es-ES');
+              const fecha = new Date(evidencia.timestamp).toLocaleString(
+                'es-ES',
+              );
               const usuario = evidencia.username || 'Usuario no especificado';
-              const rol = evidencia.userrole === 'cliente' ? '👤 Cliente' : '🔧 Técnico';
+              const rol =
+                evidencia.userrole === 'cliente' ? '👤 Cliente' : '🔧 Técnico';
 
               doc
                 .fontSize(10)
@@ -301,7 +339,10 @@ export class PdfService {
               doc.moveDown(1);
               imagenesAgregadas++;
             } catch (error) {
-              console.error(`Error agregando imagen ${evidencia.filename}:`, error);
+              console.error(
+                `Error agregando imagen ${evidencia.filename}:`,
+                error,
+              );
             }
           }
 
@@ -321,12 +362,11 @@ export class PdfService {
 
           doc.moveDown(0.5);
 
-          const estrellas = '⭐'.repeat(orden.calificacion) + '☆'.repeat(5 - orden.calificacion);
+          const estrellas =
+            '⭐'.repeat(orden.calificacion) +
+            '☆'.repeat(5 - orden.calificacion);
 
-          doc
-            .fontSize(20)
-            .fillColor('#F59E0B')
-            .text(estrellas);
+          doc.fontSize(20).fillColor('#F59E0B').text(estrellas);
 
           if (orden.comentarioCalificacion) {
             doc.moveDown(0.5);
@@ -356,7 +396,7 @@ export class PdfService {
             `Reporte generado el ${new Date().toLocaleString('es-ES')}`,
             50,
             bottomY + 10,
-            { align: 'center' }
+            { align: 'center' },
           );
 
         doc
@@ -371,6 +411,12 @@ export class PdfService {
         reject(error);
       }
     });
+  }
+
+  async generarYSubirReporteOrden(orden: any) {
+    const buffer = await this.generarReporteOrden(orden);
+    const key = `reportes/orden-${orden.id}.pdf`;
+    return this.storage.uploadFile(key, buffer, 'application/pdf');
   }
 
   private drawTable(doc: PDFKit.PDFDocument, data: string[][]) {

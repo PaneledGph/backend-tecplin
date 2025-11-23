@@ -82,8 +82,10 @@ export class TecnicosService {
 
     // Si no existe, crear el registro automáticamente
     if (!tecnico) {
-      console.log(`⚠️ No se encontró técnico para usuario ${usuarioId}, creando registro...`);
-      
+      console.log(
+        `⚠️ No se encontró técnico para usuario ${usuarioId}, creando registro...`,
+      );
+
       // Obtener información del usuario
       const usuario = await this.prisma.usuario.findUnique({
         where: { id: usuarioId },
@@ -103,7 +105,9 @@ export class TecnicosService {
         },
       });
 
-      console.log(`✅ Técnico creado automáticamente: ${tecnico.nombre} (ID: ${tecnico.id})`);
+      console.log(
+        `✅ Técnico creado automáticamente: ${tecnico.nombre} (ID: ${tecnico.id})`,
+      );
     }
 
     // Luego obtener las órdenes del técnico
@@ -153,7 +157,9 @@ export class TecnicosService {
           },
         });
         tecnicosCreados.push(nuevoTecnico);
-        console.log(`✅ Técnico creado: ${nuevoTecnico.nombre} (ID: ${nuevoTecnico.id})`);
+        console.log(
+          `✅ Técnico creado: ${nuevoTecnico.nombre} (ID: ${nuevoTecnico.id})`,
+        );
       }
     }
 

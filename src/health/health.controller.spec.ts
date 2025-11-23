@@ -29,7 +29,9 @@ describe('HealthController', () => {
 
   describe('check', () => {
     it('should return ok status when database is connected', async () => {
-      jest.spyOn(prismaService, '$queryRaw').mockResolvedValue([{ '?column?': 1 }]);
+      jest
+        .spyOn(prismaService, '$queryRaw')
+        .mockResolvedValue([{ '?column?': 1 }]);
 
       const result = await controller.check();
 
@@ -40,7 +42,9 @@ describe('HealthController', () => {
     });
 
     it('should return error status when database is disconnected', async () => {
-      jest.spyOn(prismaService, '$queryRaw').mockRejectedValue(new Error('Connection failed'));
+      jest
+        .spyOn(prismaService, '$queryRaw')
+        .mockRejectedValue(new Error('Connection failed'));
 
       const result = await controller.check();
 

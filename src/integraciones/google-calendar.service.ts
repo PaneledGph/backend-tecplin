@@ -21,7 +21,9 @@ export class GoogleCalendarService {
         : null;
 
       if (!credentials) {
-        console.warn('⚠️ Google Calendar no configurado. Configura GOOGLE_CREDENTIALS');
+        console.warn(
+          '⚠️ Google Calendar no configurado. Configura GOOGLE_CREDENTIALS',
+        );
         return;
       }
 
@@ -81,7 +83,9 @@ export class GoogleCalendarService {
         },
       });
 
-      console.log(`✅ Evento creado en Google Calendar: ${response.data.htmlLink}`);
+      console.log(
+        `✅ Evento creado en Google Calendar: ${response.data.htmlLink}`,
+      );
       return { success: true, data: response.data };
     } catch (error) {
       console.error('❌ Error al crear evento:', error.message);
@@ -103,7 +107,8 @@ export class GoogleCalendarService {
 
     return this.crearEvento({
       titulo: `Orden #${orden.id} - ${orden.descripcion}`,
-      descripcion: `📋 Orden de Servicio\n\n` +
+      descripcion:
+        `📋 Orden de Servicio\n\n` +
         `Descripción: ${orden.descripcion}\n` +
         `Cliente: ${orden.cliente?.nombre || 'N/A'}\n` +
         `Técnico: ${tecnico?.nombre || 'Sin asignar'}\n` +

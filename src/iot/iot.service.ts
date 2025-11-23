@@ -148,7 +148,11 @@ export class IoTService implements OnModuleInit {
     return this.crearOrden(cliente.id, descripcion, sensor);
   }
 
-  private async crearOrden(clienteId: number, descripcion: string, sensor: any) {
+  private async crearOrden(
+    clienteId: number,
+    descripcion: string,
+    sensor: any,
+  ) {
     const orden = await this.prisma.orden.create({
       data: {
         descripcion,
@@ -254,7 +258,11 @@ export class IoTService implements OnModuleInit {
   // -------------------------------------------------------
   // 🔍 OBTENER SENSORES (con paginación)
   // -------------------------------------------------------
-  async obtenerSensores(page: number = 1, limit: number = 50, tipo?: TipoSensor) {
+  async obtenerSensores(
+    page: number = 1,
+    limit: number = 50,
+    tipo?: TipoSensor,
+  ) {
     const skip = (page - 1) * limit;
     const where = tipo ? { tipo } : {};
 

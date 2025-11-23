@@ -18,15 +18,18 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Usuario no encontrado');
 
     const passwordIsValid = await bcrypt.compare(contrasena, user.contrasena);
-    if (!passwordIsValid) throw new UnauthorizedException('Contraseña incorrecta');
+    if (!passwordIsValid)
+      throw new UnauthorizedException('Contraseña incorrecta');
 
     const payload = { sub: user.id, rol: user.rol };
     const rolFrontend = user.rol.toLowerCase();
-    
+
     // Generar access token (JWT) y refresh token
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const refreshToken = await this.refreshTokenService.generarRefreshToken(user.id);
-    
+    const refreshToken = await this.refreshTokenService.generarRefreshToken(
+      user.id,
+    );
+
     return {
       message: 'Inicio de sesión exitoso',
       token: accessToken,
@@ -35,16 +38,16 @@ export class AuthService {
       rolFrontend,
     };
   }
-  
+
   async logout(refreshToken: string) {
     await this.refreshTokenService.revocarRefreshToken(refreshToken);
     return { message: 'Sesión cerrada exitosamente' };
   }
-  
+
   async refresh(refreshToken: string) {
     return this.refreshTokenService.renovarAccessToken(refreshToken);
   }
-  
+
   async register(usuario: string, contrasena: string, rol: string) {
     // Verifica si el usuario ya existe
     const existingUser = await this.usuariosService.findByUsuario(usuario);
@@ -59,12 +62,12 @@ export class AuthService {
     const newUser = await this.usuariosService.create({
       usuario,
       contrasena: hash,
-      rol
+      rol,
     });
 
     return {
       message: 'Usuario creado exitosamente',
-      user: { id: newUser.id, usuario: newUser.usuario, rol: newUser.rol }
+      user: { id: newUser.id, usuario: newUser.usuario, rol: newUser.rol },
     };
   }
 }

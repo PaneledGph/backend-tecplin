@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Param, Patch, Body, Req, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Patch,
+  Body,
+  Req,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { TecnicosService } from './tecnicos.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { RolesGuard } from 'src/auth/roles.guard';
@@ -46,7 +56,10 @@ export class TecnicosController {
     @Param('id') id: string,
     @Body('disponibilidad') disponibilidad: Disponibilidad,
   ) {
-    return this.tecnicosService.actualizarDisponibilidad(Number(id), disponibilidad);
+    return this.tecnicosService.actualizarDisponibilidad(
+      Number(id),
+      disponibilidad,
+    );
   }
 
   // Obtener órdenes asignadas al técnico logueado

@@ -31,62 +31,119 @@ export class ConversationFlowService {
   private flows = {
     CREATE_ORDER: {
       steps: {
-        'ask_problem': {
+        ask_problem: {
           id: 'ask_problem',
           message: '¿Cuál es el problema que necesitas resolver?',
           expectedInputType: 'text',
-          nextStep: 'ask_location'
+          nextStep: 'ask_location',
         },
-        'ask_location': {
+        ask_location: {
           id: 'ask_location',
           message: '¿En qué ubicación se encuentra el problema?',
           expectedInputType: 'text',
-          nextStep: 'ask_priority'
+          nextStep: 'ask_priority',
         },
-        'ask_priority': {
+        ask_priority: {
           id: 'ask_priority',
           message: '¿Qué prioridad tiene este problema?',
           expectedInputType: 'selection',
           options: ['Alta', 'Media', 'Baja'],
-          nextStep: 'create_order'
+          nextStep: 'ask_evidence',
         },
-        'create_order': {
+        ask_evidence: {
+          id: 'ask_evidence',
+          message: '¿Quieres subir evidencias (fotos) para esta orden ahora?',
+          expectedInputType: 'confirmation',
+          nextStep: 'create_order',
+        },
+        create_order: {
           id: 'create_order',
           message: 'Creando orden de trabajo...',
           expectedInputType: 'confirmation',
-          action: 'EXECUTE_CREATE_ORDER'
-        }
-      }
+          action: 'EXECUTE_CREATE_ORDER',
+        },
+      },
     },
     UPDATE_ORDER_STATUS: {
       steps: {
-        'ask_order_id': {
+        ask_order_id: {
           id: 'ask_order_id',
           message: '¿Qué orden quieres actualizar? Dime el número de orden.',
           expectedInputType: 'text',
-          nextStep: 'ask_new_status'
+          nextStep: 'ask_new_status',
         },
-        'ask_new_status': {
+        ask_new_status: {
           id: 'ask_new_status',
           message: '¿A qué estado quieres cambiar la orden?',
           expectedInputType: 'selection',
           options: ['En proceso', 'Completado', 'Cancelado', 'Pausado'],
-          nextStep: 'update_status'
+          nextStep: 'update_status',
         },
-        'update_status': {
+        update_status: {
           id: 'update_status',
           message: 'Actualizando estado de la orden...',
           expectedInputType: 'confirmation',
-          action: 'EXECUTE_UPDATE_STATUS'
-        }
-      }
-    }
+          action: 'EXECUTE_UPDATE_STATUS',
+        },
+      },
+    },
+    RATE_ORDER: {
+      steps: {
+        ask_order_id: {
+          id: 'ask_order_id',
+          message: '¿Qué orden quieres calificar? Dime el número de orden.',
+          expectedInputType: 'text',
+          nextStep: 'ask_rating',
+        },
+        ask_rating: {
+          id: 'ask_rating',
+          message: '¿Qué calificación del 1 al 5 le das al servicio?',
+          expectedInputType: 'selection',
+          options: ['1', '2', '3', '4', '5'],
+          nextStep: 'ask_comment',
+        },
+        ask_comment: {
+          id: 'ask_comment',
+          message:
+            '¿Quieres añadir un comentario sobre el servicio? Puedes decirlo ahora o decir "no".',
+          expectedInputType: 'text',
+          nextStep: 'rate_order',
+        },
+        rate_order: {
+          id: 'rate_order',
+          message: 'Registrando tu calificación...',
+          expectedInputType: 'confirmation',
+          action: 'EXECUTE_RATE_ORDER',
+        },
+      },
+    },
+    SHOW_EVIDENCES: {
+      steps: {
+        ask_order_id: {
+          id: 'ask_order_id',
+          message:
+            '¿De qué orden quieres ver las evidencias? Dime el número de orden.',
+          expectedInputType: 'text',
+          nextStep: 'show_evidences',
+        },
+        show_evidences: {
+          id: 'show_evidences',
+          message: 'Abriendo las evidencias de la orden...',
+          expectedInputType: 'confirmation',
+          action: 'EXECUTE_SHOW_EVIDENCES',
+        },
+      },
+    },
   };
 
   /**
    * Inicia un nuevo flujo de conversación
    */
-  startFlow(userId: number, flowType: string, initialData?: any): ConversationContext {
+  startFlow(
+    userId: number,
+    flowType: string,
+    initialData?: any,
+  ): ConversationContext {
     const sessionId = `${userId}_${Date.now()}`;
     const context: ConversationContext = {
       userId,
@@ -94,7 +151,7 @@ export class ConversationFlowService {
       currentFlow: flowType,
       step: 0,
       data: initialData || {},
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     this.activeConversations.set(sessionId, context);
@@ -104,7 +161,10 @@ export class ConversationFlowService {
   /**
    * Procesa la siguiente entrada del usuario en el flujo
    */
-  processFlowInput(sessionId: string, userInput: string): {
+  processFlowInput(
+    sessionId: string,
+    userInput: string,
+  ): {
     message: string;
     isComplete: boolean;
     nextStep?: FlowStep;
@@ -115,7 +175,7 @@ export class ConversationFlowService {
     if (!context || !context.currentFlow) {
       return {
         message: 'No hay una conversación activa. ¿En qué puedo ayudarte?',
-        isComplete: true
+        isComplete: true,
       };
     }
 
@@ -123,7 +183,7 @@ export class ConversationFlowService {
     if (!flow) {
       return {
         message: 'Flujo no encontrado. Empecemos de nuevo.',
-        isComplete: true
+        isComplete: true,
       };
     }
 
@@ -134,7 +194,7 @@ export class ConversationFlowService {
     if (!currentStep) {
       return {
         message: 'Conversación completada.',
-        isComplete: true
+        isComplete: true,
       };
     }
 
@@ -144,7 +204,7 @@ export class ConversationFlowService {
         message: currentStep.message,
         isComplete: false,
         nextStep: currentStep,
-        data: context.data
+        data: context.data,
       };
     }
 
@@ -152,8 +212,8 @@ export class ConversationFlowService {
     context.data[currentStep.id] = userInput;
 
     // Determinar el siguiente paso
-    let nextStepKey = currentStep.nextStep;
-    
+    const nextStepKey = currentStep.nextStep;
+
     // Lógica especial para ciertos flujos
     context.step++;
     const nextStep = nextStepKey ? flow.steps[nextStepKey] : null;
@@ -167,25 +227,28 @@ export class ConversationFlowService {
         message: nextStep.message,
         isComplete: false,
         nextStep: nextStep,
-        data: context.data
+        data: context.data,
       };
     } else {
       // Flujo completado - ejecutar acción si existe
       this.activeConversations.delete(sessionId);
-      
+
       if (currentStep.action) {
-        console.log('✅ Flujo completado, ejecutando acción:', currentStep.action);
+        console.log(
+          '✅ Flujo completado, ejecutando acción:',
+          currentStep.action,
+        );
         return {
           message: currentStep.message,
           isComplete: true,
           action: currentStep.action,
-          data: context.data
+          data: context.data,
         };
       } else {
         return {
           message: 'Conversación completada.',
           isComplete: true,
-          data: context.data
+          data: context.data,
         };
       }
     }
@@ -207,30 +270,30 @@ export class ConversationFlowService {
     if (!text) return '';
 
     const replacements: Record<string, string> = {
-      'cero': '0',
-      'uno': '1',
-      'una': '1',
-      'un': '1',
-      'dos': '2',
-      'tres': '3',
-      'cuatro': '4',
-      'cinco': '5',
-      'seis': '6',
-      'siete': '7',
-      'ocho': '8',
-      'nueve': '9',
-      'diez': '10',
-      'once': '11',
-      'doce': '12',
-      'trece': '13',
-      'catorce': '14',
-      'quince': '15',
-      'dieciseis': '16',
-      'dieciséis': '16',
-      'diecisiete': '17',
-      'dieciocho': '18',
-      'diecinueve': '19',
-      'veinte': '20'
+      cero: '0',
+      uno: '1',
+      una: '1',
+      un: '1',
+      dos: '2',
+      tres: '3',
+      cuatro: '4',
+      cinco: '5',
+      seis: '6',
+      siete: '7',
+      ocho: '8',
+      nueve: '9',
+      diez: '10',
+      once: '11',
+      doce: '12',
+      trece: '13',
+      catorce: '14',
+      quince: '15',
+      dieciseis: '16',
+      dieciséis: '16',
+      diecisiete: '17',
+      dieciocho: '18',
+      diecinueve: '19',
+      veinte: '20',
     };
 
     let normalized = text
@@ -248,7 +311,8 @@ export class ConversationFlowService {
 
   private hasTechnicianName(text: string): boolean {
     if (!text) return false;
-    const pattern = /(?:a|al)\s+(?:tecnico|tecnica)\s+[a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)?/i;
+    const pattern =
+      /(?:a|al)\s+(?:tecnico|tecnica)\s+[a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)?/i;
     return pattern.test(text);
   }
 
@@ -271,16 +335,25 @@ export class ConversationFlowService {
       .replace(/[\u0300-\u036f]/g, '');
     console.log('🔍 Detectando flow intent para:', input);
 
-    if ((input.includes('asigna') || input.includes('asignar')) && (input.includes('técnico') || input.includes('tecnico'))) {
-      const hasOrder = /\b(orden|order)\s*\d+\b/.test(normalizedNumbers) || /\b\d+\b/.test(normalizedNumbers);
+    if (
+      (input.includes('asigna') || input.includes('asignar')) &&
+      (input.includes('técnico') || input.includes('tecnico'))
+    ) {
+      const hasOrder =
+        /\b(orden|order)\s*\d+\b/.test(normalizedNumbers) ||
+        /\b\d+\b/.test(normalizedNumbers);
       const hasTechnicianReference = this.hasTechnicianName(sanitized);
 
       if (hasOrder && hasTechnicianReference) {
-        console.log('🚀 Comando con orden y técnico detectado, usando asignación directa');
+        console.log(
+          '🚀 Comando con orden y técnico detectado, usando asignación directa',
+        );
         return 'DIRECT_ASSIGNMENT';
       }
 
-      console.log('⚠️ Comando de asignación sin orden o técnico válido, ignorando flujo');
+      console.log(
+        '⚠️ Comando de asignación sin orden o técnico válido, ignorando flujo',
+      );
       return null;
     }
 
@@ -289,15 +362,41 @@ export class ConversationFlowService {
       return 'CREATE_ORDER';
     }
 
-    if ((input.includes('actualizar') || input.includes('cambiar')) && 
-        (input.includes('estado') || input.includes('status'))) {
+    if (
+      (input.includes('actualizar') || input.includes('cambiar')) &&
+      (input.includes('estado') || input.includes('status'))
+    ) {
       console.log('✅ Detectado: UPDATE_ORDER_STATUS');
       return 'UPDATE_ORDER_STATUS';
     }
 
-    if (input.includes('completar') || input.includes('terminar') || input.includes('finalizar')) {
+    if (
+      input.includes('completar') ||
+      input.includes('terminar') ||
+      input.includes('finalizar')
+    ) {
       console.log('✅ Detectado: UPDATE_ORDER_STATUS (completar)');
       return 'UPDATE_ORDER_STATUS';
+    }
+
+    if (
+      input.includes('calificar') ||
+      input.includes('calificación') ||
+      input.includes('calificacion')
+    ) {
+      console.log('✅ Detectado: RATE_ORDER');
+      return 'RATE_ORDER';
+    }
+
+    if (
+      (input.includes('evidencia') ||
+        input.includes('evidencias') ||
+        input.includes('foto') ||
+        input.includes('fotos')) &&
+      input.includes('orden')
+    ) {
+      console.log('✅ Detectado: SHOW_EVIDENCES');
+      return 'SHOW_EVIDENCES';
     }
 
     console.log('❌ No se detectó ningún flow intent');

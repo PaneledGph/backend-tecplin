@@ -29,18 +29,18 @@ export class ChatService {
       },
       include: {
         usuario1: {
-          select: { 
-            id: true, 
-            usuario: true, 
+          select: {
+            id: true,
+            usuario: true,
             rol: true,
             cliente: { select: { nombre: true, email: true } },
             tecnico: { select: { nombre: true } },
           },
         },
         usuario2: {
-          select: { 
-            id: true, 
-            usuario: true, 
+          select: {
+            id: true,
+            usuario: true,
             rol: true,
             cliente: { select: { nombre: true, email: true } },
             tecnico: { select: { nombre: true } },
@@ -58,18 +58,18 @@ export class ChatService {
       },
       include: {
         usuario1: {
-          select: { 
-            id: true, 
-            usuario: true, 
+          select: {
+            id: true,
+            usuario: true,
             rol: true,
             cliente: { select: { nombre: true, email: true } },
             tecnico: { select: { nombre: true } },
           },
         },
         usuario2: {
-          select: { 
-            id: true, 
-            usuario: true, 
+          select: {
+            id: true,
+            usuario: true,
             rol: true,
             cliente: { select: { nombre: true, email: true } },
             tecnico: { select: { nombre: true } },
@@ -87,7 +87,11 @@ export class ChatService {
   }
 
   // Enviar mensaje
-  async sendMessage(conversacionId: number, remitenteId: number, contenido: string) {
+  async sendMessage(
+    conversacionId: number,
+    remitenteId: number,
+    contenido: string,
+  ) {
     const mensaje = await this.prisma.mensaje.create({
       data: {
         conversacionId,
@@ -96,9 +100,9 @@ export class ChatService {
       },
       include: {
         remitente: {
-          select: { 
-            id: true, 
-            usuario: true, 
+          select: {
+            id: true,
+            usuario: true,
             rol: true,
             cliente: { select: { nombre: true, email: true } },
             tecnico: { select: { nombre: true } },
@@ -122,9 +126,9 @@ export class ChatService {
       where: { conversacionId },
       include: {
         remitente: {
-          select: { 
-            id: true, 
-            usuario: true, 
+          select: {
+            id: true,
+            usuario: true,
             rol: true,
             cliente: { select: { nombre: true, email: true } },
             tecnico: { select: { nombre: true } },

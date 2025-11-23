@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface DetectedIntent {
   intent: string;
@@ -34,10 +34,10 @@ export class IntentDetectorService {
     // Intentar con diferentes modelos disponibles
     let model;
     try {
-      model = this.genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
     } catch (error) {
       console.log('⚠️ gemini-1.5-pro no disponible, intentando gemini-pro...');
-      model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
     }
 
     const prompt = `
@@ -65,27 +65,31 @@ INTENTS PERMITIDOS POR ROL:
 
 ADMIN:
 - GET_DAILY_REPORT, GET_TECHNICIAN_PERFORMANCE, ASSIGN_TECHNICIAN
-- CREATE_ORDER, CANCEL_ORDER, UPDATE_ORDER_STATUS
+- CANCEL_ORDER, UPDATE_ORDER_STATUS
 - GET_ORDER_STATUS, GET_CLIENT_ORDERS, RESCHEDULE_ORDER
 - GET_INVENTORY_ITEM, REQUEST_MATERIAL
+- GET_CRITICAL_ALERTS, GET_ORDERS_SUMMARY
 
 TECNICO:
 - UPDATE_ORDER_STATUS, SHOW_ROUTE, GET_TECHNICIAN_LOCATION
 - REGISTER_EVIDENCE, GET_ORDER_STATUS, TECH_DIAGNOSIS
 - REQUEST_MATERIAL, GET_CLIENT_ORDERS (solo sus órdenes)
+- GET_ORDERS_SUMMARY (solo sus órdenes)
 
 CLIENTE:
 - CREATE_ORDER, GET_ORDER_STATUS, RESCHEDULE_ORDER
 - CANCEL_ORDER (solo sus órdenes), GET_CLIENT_ORDERS (solo sus órdenes)
+- GET_ORDERS_SUMMARY (solo sus órdenes)
 
 REGLAS POR ROL:
 
 ADMIN:
 - "reporte del día", "dashboard", "estadísticas" → GET_DAILY_REPORT
 - "asignar técnico", "asigna a [nombre]" → ASSIGN_TECHNICIAN
-- "rendimiento de técnicos" → GET_TECHNICIAN_PERFORMANCE
-- "crear orden", "nueva orden" → CREATE_ORDER
+- "rendimiento de técnicos", "desempeño de técnicos", "performance de técnicos" → GET_TECHNICIAN_PERFORMANCE
 - "cancelar orden" → CANCEL_ORDER
+- "alertas críticas", "órdenes en riesgo", "órdenes atrasadas", "alertas iot" → GET_CRITICAL_ALERTS
+- "resumen de órdenes", "resumen de las órdenes de hoy", "reporte de órdenes" → GET_ORDERS_SUMMARY
 
 TECNICO:
 - "ya llegué", "llegué al cliente" → UPDATE_ORDER_STATUS + status = "ARRIVED"
@@ -94,6 +98,7 @@ TECNICO:
 - "muéstrame la ruta", "navegación" → SHOW_ROUTE
 - "¿cómo diagnosticar?", "problema técnico" → TECH_DIAGNOSIS
 - "mis órdenes" → GET_CLIENT_ORDERS
+- "resumen de mis órdenes", "resumen de mis órdenes de hoy" → GET_ORDERS_SUMMARY
 
 CLIENTE:
 - "crear orden", "tengo un problema" → CREATE_ORDER
@@ -101,6 +106,7 @@ CLIENTE:
 - "reprogramar", "cambiar fecha" → RESCHEDULE_ORDER
 - "cancelar mi orden" → CANCEL_ORDER
 - "mis órdenes" → GET_CLIENT_ORDERS
+- "resumen de mis órdenes", "resumen de mis órdenes de hoy" → GET_ORDERS_SUMMARY
 
 DEVUELVE INTENT "UNKNOWN" si no estás seguro.
 
@@ -113,29 +119,28 @@ COMANDO: "${text}"
       console.log('🤖 Enviando prompt a Gemini para:', text);
       const result = await model.generateContent(prompt);
       const jsonString = result.response.text().trim();
-      
+
       console.log('🤖 Respuesta cruda de Gemini:', jsonString);
-      
+
       // Limpiar posibles caracteres extra del JSON
       const cleanJson = jsonString.replace(/```json\n?|\n?```/g, '').trim();
       console.log('🤖 JSON limpio:', cleanJson);
-      
-      let parsed = JSON.parse(cleanJson);
+
+      const parsed = JSON.parse(cleanJson);
       console.log('🤖 JSON parseado:', parsed);
 
       parsed.rawText = text;
       parsed.confidence = parsed.confidence || 0.8;
-      
+
       console.log('🎯 Intent detectado:', parsed.intent);
       return parsed as DetectedIntent;
-
     } catch (err) {
       console.error('Error en IntentDetector:', err);
       // fallback mínimo por si falla
       return {
         intent: 'UNKNOWN',
         rawText: text,
-        confidence: 0.1
+        confidence: 0.1,
       };
     }
   }
@@ -143,15 +148,17 @@ COMANDO: "${text}"
   /**
    * Detecta múltiples intenciones en un comando complejo
    */
-  async detectMultiple(command: AssistantCommandDto): Promise<DetectedIntent[]> {
+  async detectMultiple(
+    command: AssistantCommandDto,
+  ): Promise<DetectedIntent[]> {
     const mainIntent = await this.detect(command);
-    
+
     const intents = [mainIntent];
-    
+
     if (mainIntent.extraIntents && mainIntent.extraIntents.length > 0) {
       intents.push(...mainIntent.extraIntents);
     }
-    
+
     return intents;
   }
 }

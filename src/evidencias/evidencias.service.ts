@@ -17,9 +17,16 @@ export class EvidenciasService {
   ) {
     const timestamp = Date.now();
     const extension = path.extname(file.originalname);
-    const key = path.posix.join('evidencias', `orden-${ordenId}-${timestamp}${extension}`);
+    const key = path.posix.join(
+      'evidencias',
+      `orden-${ordenId}-${timestamp}${extension}`,
+    );
 
-    const uploadResult = await this.storage.uploadFile(key, file.buffer, file.mimetype);
+    const uploadResult = await this.storage.uploadFile(
+      key,
+      file.buffer,
+      file.mimetype,
+    );
 
     const evidencia = await this.prisma.evidencia.create({
       data: {
@@ -72,7 +79,9 @@ export class EvidenciasService {
     });
   }
 
-  private withPublicUrl<T extends { filename: string; filepath: string | null }>(evidencia: T) {
+  private withPublicUrl<
+    T extends { filename: string; filepath: string | null },
+  >(evidencia: T) {
     const url = evidencia.filepath?.startsWith('http')
       ? evidencia.filepath
       : this.storage.getPublicUrl(evidencia.filename);

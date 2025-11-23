@@ -34,7 +34,7 @@ export class HttpCacheInterceptor implements NestInterceptor {
     }
 
     console.log(`❌ Cache MISS: ${cacheKey}`);
-    
+
     // Si no está en caché, ejecutar y guardar
     return next.handle().pipe(
       tap(async (response) => {

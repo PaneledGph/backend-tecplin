@@ -9,7 +9,7 @@ export class UsuariosService {
   async findAll(page: number = 1, limit: number = 100, rol?: string) {
     const skip = (page - 1) * limit;
     const where = rol ? { rol: rol as Rol } : {};
-    
+
     const [usuarios, total] = await Promise.all([
       this.prisma.usuario.findMany({
         where,
@@ -81,9 +81,12 @@ export class UsuariosService {
   }
 
   // Actualizar usuario
-  async update(id: number, data: { usuario?: string; contrasena?: string; rol?: string }) {
+  async update(
+    id: number,
+    data: { usuario?: string; contrasena?: string; rol?: string },
+  ) {
     const updateData: any = {};
-    
+
     if (data.usuario) updateData.usuario = data.usuario;
     if (data.contrasena) updateData.contrasena = data.contrasena;
     if (data.rol) updateData.rol = data.rol as Rol;
@@ -98,11 +101,11 @@ export class UsuariosService {
   async remove(id: number) {
     // Primero eliminar registros relacionados
     const usuario = await this.findById(id);
-    
+
     if (!usuario) {
       throw new Error('Usuario no encontrado');
     }
-    
+
     // Eliminar refresh tokens
     await this.prisma.refreshToken.deleteMany({
       where: { usuarioId: id },
@@ -132,12 +135,12 @@ export class UsuariosService {
     await this.prisma.assistantMemory.deleteMany({
       where: { userId: id },
     });
-    
+
     // Eliminar técnico o cliente
     if (usuario.tecnico) {
       await this.prisma.tecnico.delete({ where: { id: usuario.tecnico.id } });
     }
-    
+
     if (usuario.cliente) {
       await this.prisma.cliente.delete({ where: { id: usuario.cliente.id } });
     }

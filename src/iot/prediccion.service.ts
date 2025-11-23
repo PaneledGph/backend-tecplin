@@ -41,7 +41,9 @@ export class PrediccionService {
     }
 
     // Ordenar por probabilidad de fallo (mayor a menor)
-    return predicciones.sort((a, b) => b.probabilidadFallo - a.probabilidadFallo);
+    return predicciones.sort(
+      (a, b) => b.probabilidadFallo - a.probabilidadFallo,
+    );
   }
 
   // -------------------------------------------------------
@@ -115,7 +117,9 @@ export class PrediccionService {
 
     if (porcentajeAnormal > 20) {
       probabilidad += 35;
-      razones.push(`${porcentajeAnormal.toFixed(1)}% de lecturas fuera de rango`);
+      razones.push(
+        `${porcentajeAnormal.toFixed(1)}% de lecturas fuera de rango`,
+      );
     } else if (porcentajeAnormal > 10) {
       probabilidad += 20;
       razones.push(`${porcentajeAnormal.toFixed(1)}% de lecturas anormales`);
@@ -155,7 +159,9 @@ export class PrediccionService {
   // -------------------------------------------------------
   // 📈 CALCULAR TENDENCIA
   // -------------------------------------------------------
-  private calcularTendencia(valores: number[]): 'CRECIENTE' | 'DECRECIENTE' | 'ESTABLE' {
+  private calcularTendencia(
+    valores: number[],
+  ): 'CRECIENTE' | 'DECRECIENTE' | 'ESTABLE' {
     if (valores.length < 5) return 'ESTABLE';
 
     const mitad = Math.floor(valores.length / 2);
@@ -167,7 +173,8 @@ export class PrediccionService {
     const promedioSegunda =
       segundaMitad.reduce((a, b) => a + b, 0) / segundaMitad.length;
 
-    const diferencia = ((promedioSegunda - promedioPrimera) / promedioPrimera) * 100;
+    const diferencia =
+      ((promedioSegunda - promedioPrimera) / promedioPrimera) * 100;
 
     if (diferencia > 5) return 'CRECIENTE';
     if (diferencia < -5) return 'DECRECIENTE';

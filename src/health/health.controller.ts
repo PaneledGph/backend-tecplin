@@ -9,17 +9,20 @@ export class HealthController {
 
   @Get()
   @ApiOperation({ summary: 'Health check completo del sistema' })
-  @ApiResponse({ status: 200, description: 'Sistema funcionando correctamente' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sistema funcionando correctamente',
+  })
   @ApiResponse({ status: 500, description: 'Error en el sistema' })
   async check() {
     const startTime = Date.now();
-    
+
     try {
       // Verificar conexión a base de datos
       await this.prisma.$queryRaw`SELECT 1`;
-      
+
       const responseTime = Date.now() - startTime;
-      
+
       return {
         status: 'ok',
         timestamp: new Date().toISOString(),

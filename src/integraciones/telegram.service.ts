@@ -25,7 +25,10 @@ export class TelegramService {
       console.log(`✅ Mensaje Telegram enviado a ${chatId}`);
       return { success: true, data: response.data };
     } catch (error) {
-      console.error('❌ Error al enviar Telegram:', error.response?.data || error.message);
+      console.error(
+        '❌ Error al enviar Telegram:',
+        error.response?.data || error.message,
+      );
       return { success: false, error: error.message };
     }
   }
@@ -34,7 +37,8 @@ export class TelegramService {
   // 📋 NOTIFICAR ORDEN CREADA
   // -------------------------------------------------------
   async notificarOrdenCreada(chatId: string, orden: any): Promise<any> {
-    const mensaje = `🔔 *Nueva Orden de Servicio*\n\n` +
+    const mensaje =
+      `🔔 *Nueva Orden de Servicio*\n\n` +
       `📋 Orden #${orden.id}\n` +
       `📝 ${orden.descripcion}\n` +
       `📍 ${orden.ubicacion || 'No especificada'}\n` +
@@ -47,8 +51,13 @@ export class TelegramService {
   // -------------------------------------------------------
   // 👤 NOTIFICAR TÉCNICO ASIGNADO
   // -------------------------------------------------------
-  async notificarTecnicoAsignado(chatId: string, orden: any, tecnico: any): Promise<any> {
-    const mensaje = `👤 *Técnico Asignado*\n\n` +
+  async notificarTecnicoAsignado(
+    chatId: string,
+    orden: any,
+    tecnico: any,
+  ): Promise<any> {
+    const mensaje =
+      `👤 *Técnico Asignado*\n\n` +
       `📋 Orden #${orden.id}\n` +
       `👷 Técnico: ${tecnico.nombre}\n` +
       `📞 Contacto: ${tecnico.telefono || 'No disponible'}`;
@@ -60,7 +69,8 @@ export class TelegramService {
   // ✅ NOTIFICAR ORDEN COMPLETADA
   // -------------------------------------------------------
   async notificarOrdenCompletada(chatId: string, orden: any): Promise<any> {
-    const mensaje = `✅ *Orden Completada*\n\n` +
+    const mensaje =
+      `✅ *Orden Completada*\n\n` +
       `📋 Orden #${orden.id}\n` +
       `📝 ${orden.descripcion}\n` +
       `✅ Estado: COMPLETADO`;
@@ -71,8 +81,13 @@ export class TelegramService {
   // -------------------------------------------------------
   // 🚨 NOTIFICAR ALERTA IoT
   // -------------------------------------------------------
-  async notificarAlertaIoT(chatId: string, alerta: any, sensor: any): Promise<any> {
-    const mensaje = `🚨 *Alerta IoT*\n\n` +
+  async notificarAlertaIoT(
+    chatId: string,
+    alerta: any,
+    sensor: any,
+  ): Promise<any> {
+    const mensaje =
+      `🚨 *Alerta IoT*\n\n` +
       `📡 Sensor: ${sensor.codigo}\n` +
       `⚠️ Tipo: ${alerta.tipo}\n` +
       `📊 Valor: ${alerta.valor} ${sensor.unidad || ''}\n` +
@@ -85,7 +100,8 @@ export class TelegramService {
   // 📊 ENVIAR REPORTE DIARIO
   // -------------------------------------------------------
   async enviarReporteDiario(chatId: string, estadisticas: any): Promise<any> {
-    const mensaje = `📊 *Reporte Diario*\n\n` +
+    const mensaje =
+      `📊 *Reporte Diario*\n\n` +
       `📋 Órdenes totales: ${estadisticas.totalOrdenes}\n` +
       `✅ Completadas: ${estadisticas.completadas}\n` +
       `⏳ Pendientes: ${estadisticas.pendientes}\n` +

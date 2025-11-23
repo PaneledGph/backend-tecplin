@@ -3,7 +3,8 @@ import axios from 'axios';
 
 @Injectable()
 export class WhatsAppService {
-  private readonly apiUrl = process.env.WHATSAPP_API_URL || 'https://graph.facebook.com/v18.0';
+  private readonly apiUrl =
+    process.env.WHATSAPP_API_URL || 'https://graph.facebook.com/v18.0';
   private readonly phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   private readonly accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
 
@@ -12,7 +13,9 @@ export class WhatsAppService {
   // -------------------------------------------------------
   async enviarMensaje(to: string, mensaje: string): Promise<any> {
     if (!this.accessToken || !this.phoneNumberId) {
-      console.warn('⚠️ WhatsApp no configurado. Configura WHATSAPP_ACCESS_TOKEN y WHATSAPP_PHONE_NUMBER_ID');
+      console.warn(
+        '⚠️ WhatsApp no configurado. Configura WHATSAPP_ACCESS_TOKEN y WHATSAPP_PHONE_NUMBER_ID',
+      );
       return { success: false, message: 'WhatsApp no configurado' };
     }
 
@@ -29,7 +32,7 @@ export class WhatsAppService {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.accessToken}`,
+            Authorization: `Bearer ${this.accessToken}`,
             'Content-Type': 'application/json',
           },
         },
@@ -38,7 +41,10 @@ export class WhatsAppService {
       console.log(`✅ Mensaje WhatsApp enviado a ${to}`);
       return { success: true, data: response.data };
     } catch (error) {
-      console.error('❌ Error al enviar WhatsApp:', error.response?.data || error.message);
+      console.error(
+        '❌ Error al enviar WhatsApp:',
+        error.response?.data || error.message,
+      );
       return { success: false, error: error.message };
     }
   }
@@ -47,7 +53,8 @@ export class WhatsAppService {
   // 📋 ENVIAR NOTIFICACIÓN DE ORDEN CREADA
   // -------------------------------------------------------
   async notificarOrdenCreada(telefono: string, orden: any): Promise<any> {
-    const mensaje = `🔔 *Nueva Orden de Servicio*\n\n` +
+    const mensaje =
+      `🔔 *Nueva Orden de Servicio*\n\n` +
       `📋 Orden #${orden.id}\n` +
       `📝 ${orden.descripcion}\n` +
       `📍 ${orden.ubicacion || 'No especificada'}\n` +
@@ -61,8 +68,13 @@ export class WhatsAppService {
   // -------------------------------------------------------
   // 👤 ENVIAR NOTIFICACIÓN DE TÉCNICO ASIGNADO
   // -------------------------------------------------------
-  async notificarTecnicoAsignado(telefono: string, orden: any, tecnico: any): Promise<any> {
-    const mensaje = `👤 *Técnico Asignado*\n\n` +
+  async notificarTecnicoAsignado(
+    telefono: string,
+    orden: any,
+    tecnico: any,
+  ): Promise<any> {
+    const mensaje =
+      `👤 *Técnico Asignado*\n\n` +
       `📋 Orden #${orden.id}\n` +
       `👷 Técnico: ${tecnico.nombre}\n` +
       `📞 Contacto: ${tecnico.telefono || 'No disponible'}\n\n` +
@@ -75,7 +87,8 @@ export class WhatsAppService {
   // ✅ ENVIAR NOTIFICACIÓN DE ORDEN COMPLETADA
   // -------------------------------------------------------
   async notificarOrdenCompletada(telefono: string, orden: any): Promise<any> {
-    const mensaje = `✅ *Orden Completada*\n\n` +
+    const mensaje =
+      `✅ *Orden Completada*\n\n` +
       `📋 Orden #${orden.id}\n` +
       `📝 ${orden.descripcion}\n` +
       `✅ Estado: COMPLETADO\n\n` +
@@ -87,8 +100,13 @@ export class WhatsAppService {
   // -------------------------------------------------------
   // 🚨 ENVIAR ALERTA IoT
   // -------------------------------------------------------
-  async notificarAlertaIoT(telefono: string, alerta: any, sensor: any): Promise<any> {
-    const mensaje = `🚨 *Alerta IoT*\n\n` +
+  async notificarAlertaIoT(
+    telefono: string,
+    alerta: any,
+    sensor: any,
+  ): Promise<any> {
+    const mensaje =
+      `🚨 *Alerta IoT*\n\n` +
       `📡 Sensor: ${sensor.codigo}\n` +
       `⚠️ Tipo: ${alerta.tipo}\n` +
       `📊 Valor: ${alerta.valor} ${sensor.unidad || ''}\n` +

@@ -8,7 +8,14 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 
 @ApiTags('chat')
@@ -29,9 +36,7 @@ export class ChatController {
     },
   })
   @ApiResponse({ status: 201, description: 'Conversación creada o encontrada' })
-  async createConversation(
-    @Body() body: { userId1: number; userId2: number },
-  ) {
+  async createConversation(@Body() body: { userId1: number; userId2: number }) {
     return this.chatService.createConversation(body.userId1, body.userId2);
   }
 
@@ -74,9 +79,7 @@ export class ChatController {
 
   // Marcar mensajes como leídos
   @Post('messages/read')
-  async markAsRead(
-    @Body() body: { conversacionId: number; userId: number },
-  ) {
+  async markAsRead(@Body() body: { conversacionId: number; userId: number }) {
     return this.chatService.markAsRead(body.conversacionId, body.userId);
   }
 
@@ -89,7 +92,9 @@ export class ChatController {
 
   // Obtener técnicos y admins disponibles
   @Get('staff')
-  @ApiOperation({ summary: 'Obtener lista de técnicos y admins disponibles para chat' })
+  @ApiOperation({
+    summary: 'Obtener lista de técnicos y admins disponibles para chat',
+  })
   @ApiResponse({ status: 200, description: 'Lista de staff disponible' })
   async getAvailableStaff() {
     return this.chatService.getAvailableStaff();
@@ -97,7 +102,9 @@ export class ChatController {
 
   // Crear conversación para una orden específica
   @Post('conversation/order')
-  @ApiOperation({ summary: 'Crear conversación entre cliente y técnico para una orden' })
+  @ApiOperation({
+    summary: 'Crear conversación entre cliente y técnico para una orden',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -108,9 +115,17 @@ export class ChatController {
       },
     },
   })
-  @ApiResponse({ status: 201, description: 'Conversación creada para la orden' })
+  @ApiResponse({
+    status: 201,
+    description: 'Conversación creada para la orden',
+  })
   async createConversationForOrder(
-    @Body() body: { clienteUserId: number; tecnicoUserId: number; ordenId: number },
+    @Body()
+    body: {
+      clienteUserId: number;
+      tecnicoUserId: number;
+      ordenId: number;
+    },
   ) {
     return this.chatService.createConversationForOrder(
       body.clienteUserId,
@@ -124,7 +139,10 @@ export class ChatController {
   @ApiOperation({ summary: 'Obtener conversación asociada a una orden' })
   @ApiParam({ name: 'ordenId', type: 'number', description: 'ID de la orden' })
   @ApiResponse({ status: 200, description: 'Conversación encontrada' })
-  @ApiResponse({ status: 404, description: 'No hay conversación para esta orden' })
+  @ApiResponse({
+    status: 404,
+    description: 'No hay conversación para esta orden',
+  })
   async getConversationByOrder(@Param('ordenId') ordenId: string) {
     return this.chatService.getConversationByOrder(parseInt(ordenId));
   }

@@ -32,7 +32,7 @@ export class AssistantActionsService {
       });
 
       console.log(`✅ Orden #${orden.id} creada por asistente`);
-      
+
       return {
         success: true,
         orden,
@@ -65,14 +65,14 @@ export class AssistantActionsService {
       if (params.prioridad) updateData.prioridad = params.prioridad;
       if (params.estado) updateData.estado = params.estado;
 
-      const orden = await this.prisma.orden.update({
+      const orden = (await this.prisma.orden.update({
         where: { id: params.ordenId },
         data: updateData,
         include: {
           cliente: true,
           tecnico: true,
         },
-      }) as any;
+      })) as any;
 
       console.log(`✅ Orden #${orden.id} modificada por asistente`);
 
@@ -104,7 +104,9 @@ export class AssistantActionsService {
 
       // Auto-asignar técnico disponible
       if (params.autoAsignar || !tecnicoId) {
-        const tecnicoDisponible = await this.encontrarTecnicoOptimo(params.ordenId);
+        const tecnicoDisponible = await this.encontrarTecnicoOptimo(
+          params.ordenId,
+        );
         if (!tecnicoDisponible) {
           return {
             success: false,
@@ -114,7 +116,7 @@ export class AssistantActionsService {
         tecnicoId = tecnicoDisponible.id;
       }
 
-      const orden = await this.prisma.orden.update({
+      const orden = (await this.prisma.orden.update({
         where: { id: params.ordenId },
         data: {
           tecnicoid: tecnicoId,
@@ -124,9 +126,11 @@ export class AssistantActionsService {
           cliente: true,
           tecnico: true,
         },
-      }) as any;
+      })) as any;
 
-      console.log(`✅ Orden #${orden.id} asignada a técnico #${tecnicoId} por asistente`);
+      console.log(
+        `✅ Orden #${orden.id} asignada a técnico #${tecnicoId} por asistente`,
+      );
 
       return {
         success: true,
@@ -148,7 +152,7 @@ export class AssistantActionsService {
   // -------------------------------------------------------
   private async encontrarTecnicoOptimo(ordenId: number): Promise<any> {
     // Obtener técnicos disponibles
-    const tecnicos = await this.prisma.tecnico.findMany({
+    const tecnicos = (await this.prisma.tecnico.findMany({
       where: { disponibilidad: 'DISPONIBLE' },
       include: {
         orden: {
@@ -159,7 +163,7 @@ export class AssistantActionsService {
           },
         },
       },
-    }) as any;
+    })) as any;
 
     if (tecnicos.length === 0) return null;
 
@@ -173,14 +177,19 @@ export class AssistantActionsService {
   // 📊 OBTENER ESTADÍSTICAS PARA ASISTENTE
   // -------------------------------------------------------
   async obtenerEstadisticas(): Promise<any> {
-    const [totalOrdenes, pendientes, enProceso, completadas, tecnicosDisponibles] =
-      await Promise.all([
-        this.prisma.orden.count(),
-        this.prisma.orden.count({ where: { estado: 'PENDIENTE' } }),
-        this.prisma.orden.count({ where: { estado: 'EN_PROCESO' } }),
-        this.prisma.orden.count({ where: { estado: 'COMPLETADO' } }),
-        this.prisma.tecnico.count({ where: { disponibilidad: 'DISPONIBLE' } }),
-      ]);
+    const [
+      totalOrdenes,
+      pendientes,
+      enProceso,
+      completadas,
+      tecnicosDisponibles,
+    ] = await Promise.all([
+      this.prisma.orden.count(),
+      this.prisma.orden.count({ where: { estado: 'PENDIENTE' } }),
+      this.prisma.orden.count({ where: { estado: 'EN_PROCESO' } }),
+      this.prisma.orden.count({ where: { estado: 'COMPLETADO' } }),
+      this.prisma.tecnico.count({ where: { disponibilidad: 'DISPONIBLE' } }),
+    ]);
 
     return {
       totalOrdenes,
@@ -255,7 +264,9 @@ export class AssistantActionsService {
       enProcesoMucho,
       altaPrioridadPendientes,
       hayProblemas:
-        pendientesMucho > 0 || enProcesoMucho > 0 || altaPrioridadPendientes > 0,
+        pendientesMucho > 0 ||
+        enProcesoMucho > 0 ||
+        altaPrioridadPendientes > 0,
     };
   }
 
@@ -265,7 +276,7 @@ export class AssistantActionsService {
   async reorganizarAsignaciones(): Promise<any> {
     try {
       // Obtener técnicos con su carga de trabajo
-      const tecnicos = await this.prisma.tecnico.findMany({
+      const tecnicos = (await this.prisma.tecnico.findMany({
         where: { disponibilidad: 'DISPONIBLE' },
         include: {
           orden: {
@@ -274,7 +285,7 @@ export class AssistantActionsService {
             },
           },
         },
-      }) as any;
+      })) as any;
 
       // Obtener órdenes pendientes de alta prioridad
       const ordenesPendientes = await this.prisma.orden.findMany({
@@ -290,7 +301,9 @@ export class AssistantActionsService {
       for (const orden of ordenesPendientes) {
         // Encontrar técnico con menos carga
         const tecnicoOptimo = tecnicos.reduce((prev, current) =>
-          (prev.orden?.length || 0) < (current.orden?.length || 0) ? prev : current,
+          (prev.orden?.length || 0) < (current.orden?.length || 0)
+            ? prev
+            : current,
         );
 
         if (tecnicoOptimo) {
@@ -313,7 +326,9 @@ export class AssistantActionsService {
         }
       }
 
-      console.log(`✅ ${asignaciones.length} órdenes reorganizadas automáticamente`);
+      console.log(
+        `✅ ${asignaciones.length} órdenes reorganizadas automáticamente`,
+      );
 
       return {
         success: true,

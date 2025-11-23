@@ -148,7 +148,9 @@ TONO: Amable, servicial, empático`,
 
     // Detectar intención
     for (const [intencion, palabras] of Object.entries(intencionesRol)) {
-      if ((palabras as string[]).some((palabra) => textoLower.includes(palabra))) {
+      if (
+        (palabras as string[]).some((palabra) => textoLower.includes(palabra))
+      ) {
         return {
           intencion,
           confianza: 0.8,
@@ -465,14 +467,14 @@ TONO: Amable, servicial, empático`,
       }
 
       if (rol === 'cliente') {
-        const cliente = await this.prisma.cliente.findFirst({
+        const cliente = (await this.prisma.cliente.findFirst({
           where: { usuarioId: usuarioId },
           include: {
             orden: {
               where: { estado: { not: 'COMPLETADO' } },
             },
           },
-        }) as any;
+        })) as any;
 
         if (cliente && (cliente.orden?.length || 0) === 0) {
           sugerencias.push(`💡 ¿Necesitas crear una nueva orden de servicio?`);

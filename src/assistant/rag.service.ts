@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface TechnicalDocument {
   id: number;
@@ -31,7 +31,7 @@ export class RAGService {
   async embedText(text: string): Promise<number[]> {
     try {
       const model = this.genAI.getGenerativeModel({
-        model: "text-embedding-004",
+        model: 'text-embedding-004',
       });
 
       const result = await model.embedContent(text);
@@ -46,7 +46,11 @@ export class RAGService {
   /**
    * Inserta un documento técnico con su embedding
    */
-  async insertTechnicalDocument(title: string, content: string, category?: string): Promise<any> {
+  async insertTechnicalDocument(
+    title: string,
+    content: string,
+    category?: string,
+  ): Promise<any> {
     try {
       const embedding = await this.embedText(content);
 
@@ -94,13 +98,14 @@ export class RAGService {
   async answer(query: string): Promise<RAGResponse> {
     try {
       const docs = await this.search(query);
-      const context = docs.map(d => `${d.title}: ${d.content}`).join('\n\n');
+      const context = docs.map((d) => `${d.title}: ${d.content}`).join('\n\n');
 
       if (!context.trim()) {
         return {
-          answer: "No encontré información específica sobre esa consulta en nuestros manuales técnicos.",
+          answer:
+            'No encontré información específica sobre esa consulta en nuestros manuales técnicos.',
           usedDocs: [],
-          confidence: 0.1
+          confidence: 0.1,
         };
       }
 
@@ -127,26 +132,28 @@ Respuesta:
       // Intentar con diferentes modelos disponibles
       let model;
       try {
-        model = this.genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+        model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
       } catch (error) {
-        console.log('⚠️ gemini-1.5-pro no disponible en RAG, usando gemini-pro...');
-        model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+        console.log(
+          '⚠️ gemini-1.5-pro no disponible en RAG, usando gemini-pro...',
+        );
+        model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
       }
       const result = await model.generateContent(prompt);
 
       return {
         answer: result.response.text(),
-        usedDocs: docs.map(d => d.title),
+        usedDocs: docs.map((d) => d.title),
         confidence: docs.length > 0 ? 0.8 : 0.3,
-        category: docs[0]?.category || 'general'
+        category: docs[0]?.category || 'general',
       };
-
     } catch (error) {
       console.error('Error generando respuesta RAG:', error);
       return {
-        answer: "Ocurrió un error al procesar tu consulta técnica. Por favor, intenta de nuevo.",
+        answer:
+          'Ocurrió un error al procesar tu consulta técnica. Por favor, intenta de nuevo.',
         usedDocs: [],
-        confidence: 0.1
+        confidence: 0.1,
       };
     }
   }
@@ -154,13 +161,16 @@ Respuesta:
   /**
    * Diagnóstico técnico especializado
    */
-  async technicalDiagnosis(problem: string, context?: any): Promise<RAGResponse> {
+  async technicalDiagnosis(
+    problem: string,
+    context?: any,
+  ): Promise<RAGResponse> {
     const enhancedQuery = `diagnóstico problema técnico: ${problem}`;
-    
+
     if (context?.equipmentType) {
       enhancedQuery.concat(` equipo: ${context.equipmentType}`);
     }
-    
+
     return this.answer(enhancedQuery);
   }
 

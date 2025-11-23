@@ -20,7 +20,7 @@ export class AuthController {
   register(
     @Body('usuario') usuario: string,
     @Body('contrasena') contrasena: string,
-    @Body('rol') rol: string
+    @Body('rol') rol: string,
   ) {
     return this.authService.register(usuario, contrasena, rol);
   }

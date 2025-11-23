@@ -30,10 +30,12 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
     }),
 
     // 🛡️ Rate Limiting (100 requests por minuto por IP)
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 60 segundos
-      limit: 100, // 100 requests
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 60 segundos
+        limit: 100, // 100 requests
+      },
+    ]),
 
     AuthModule,
     UsuariosModule,
