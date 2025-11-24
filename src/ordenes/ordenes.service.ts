@@ -228,10 +228,33 @@ export class OrdenesService {
     let reportePdfUrl: string | undefined;
 
     try {
+      console.log(
+        '📄 [OrdenesService] Iniciando generación de reporte PDF para orden',
+        ordenId,
+      );
+
       const uploadResult =
         await this.pdfService.generarYSubirReporteOrden(ordenActualizada);
+
+      console.log(
+        '📄 [OrdenesService] Resultado de generarYSubirReporteOrden:',
+        uploadResult,
+      );
+
       if (uploadResult && uploadResult.url) {
         reportePdfUrl = uploadResult.url;
+        console.log(
+          '📄 [OrdenesService] Reporte PDF generado y subido correctamente para orden',
+          ordenId,
+          'URL:',
+          reportePdfUrl,
+        );
+      } else {
+        console.warn(
+          '⚠️ [OrdenesService] UploadResult sin URL para orden',
+          ordenId,
+          uploadResult,
+        );
       }
     } catch (error) {
       console.error(
@@ -269,10 +292,17 @@ export class OrdenesService {
       );
     }
 
-    return {
+    const respuesta = {
       ...ordenActualizada,
       ...(reportePdfUrl && { reportePdfUrl }),
     };
+
+    console.log('📄 [OrdenesService] Respuesta completarOrden para', ordenId, {
+      tieneReportePdfUrl: !!reportePdfUrl,
+      reportePdfUrl,
+    });
+
+    return respuesta;
   }
 
   // Calificar servicio
