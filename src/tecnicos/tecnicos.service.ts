@@ -66,10 +66,25 @@ export class TecnicosService {
 
   // Obtener órdenes asignadas a un técnico
   async obtenerOrdenesAsignadas(tecnicoid: number) {
-    return this.prisma.orden.findMany({
+    const ordenes = await this.prisma.orden.findMany({
       where: { tecnicoid }, // ✅ minúsculas según tu BD
       include: { cliente: true },
       orderBy: { fechasolicitud: 'desc' }, // ✅ minúsculas según tu BD
+    });
+
+    const publicBaseUrl = process.env.STORAGE_PUBLIC_URL;
+    const base = publicBaseUrl ? publicBaseUrl.replace(/\/$/, '') : null;
+
+    return ordenes.map((orden) => {
+      if (!base || orden.estado !== 'COMPLETADO') {
+        return orden;
+      }
+
+      const key = `reportes/orden-${orden.id}.pdf`;
+      return {
+        ...orden,
+        reportePdfUrl: `${base}/${key}`,
+      };
     });
   }
 

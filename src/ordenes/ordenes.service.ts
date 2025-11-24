@@ -28,6 +28,35 @@ export class OrdenesService {
     private pdfService: PdfService,
   ) {}
 
+  // Helper para construir la URL pública del PDF de una orden (si está configurado STORAGE_PUBLIC_URL)
+  private buildReportePdfUrl(ordenId: number): string | null {
+    const publicBaseUrl = process.env.STORAGE_PUBLIC_URL;
+    if (!publicBaseUrl) {
+      return null;
+    }
+
+    const base = publicBaseUrl.replace(/\/$/, '');
+    const key = `reportes/orden-${ordenId}.pdf`;
+    return `${base}/${key}`;
+  }
+
+  // Adjuntar reportePdfUrl dinámico a una orden completada
+  private attachReportePdfUrlIfAvailable(orden: any) {
+    if (!orden || orden.estado !== 'COMPLETADO') {
+      return orden;
+    }
+
+    const url = this.buildReportePdfUrl(orden.id);
+    if (!url) {
+      return orden;
+    }
+
+    return {
+      ...orden,
+      reportePdfUrl: url,
+    };
+  }
+
   // Crear nueva orden
   async crearOrden(
     clienteid: number,
@@ -87,11 +116,13 @@ export class OrdenesService {
 
   // Obtener todas las órdenes del cliente
   async obtenerOrdenesCliente(clienteid: number) {
-    return this.prisma.orden.findMany({
-      where: { clienteid }, // ✅ corregido
+    const ordenes = await this.prisma.orden.findMany({
+      where: { clienteid },
       include: { tecnico: true, cliente: true },
-      orderBy: { fechasolicitud: 'desc' }, // ✅ corregido
+      orderBy: { fechasolicitud: 'desc' },
     });
+
+    return ordenes.map((orden) => this.attachReportePdfUrlIfAvailable(orden));
   }
 
   // Obtener todas las órdenes (ADMIN o TECNICO) con paginación
@@ -104,7 +135,7 @@ export class OrdenesService {
 
     const where = estado ? { estado } : {};
 
-    const [ordenes, total] = await Promise.all([
+    const [ordenesRaw, total] = await Promise.all([
       this.prisma.orden.findMany({
         where,
         include: { cliente: true, tecnico: true },
@@ -114,6 +145,10 @@ export class OrdenesService {
       }),
       this.prisma.orden.count({ where }),
     ]);
+
+    const ordenes = ordenesRaw.map((orden) =>
+      this.attachReportePdfUrlIfAvailable(orden),
+    );
 
     return {
       data: ordenes,
@@ -341,7 +376,7 @@ export class OrdenesService {
 
   // Obtener orden por ID
   async obtenerOrdenPorId(ordenId: number) {
-    return this.prisma.orden.findUnique({
+    const orden = await this.prisma.orden.findUnique({
       where: { id: ordenId },
       include: {
         cliente: true,
@@ -351,6 +386,12 @@ export class OrdenesService {
         },
       },
     });
+
+    if (!orden) {
+      return null;
+    }
+
+    return this.attachReportePdfUrlIfAvailable(orden);
   }
 
   // Actualizar orden
