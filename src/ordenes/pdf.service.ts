@@ -48,7 +48,7 @@ export class PdfService {
           .fontSize(16)
           .font('Helvetica-Bold')
           .fillColor('#111827')
-          .text('📋 Información General');
+          .text('INFORMACIÓN GENERAL');
 
         doc.moveDown(0.5);
 
@@ -75,7 +75,7 @@ export class PdfService {
           .fontSize(16)
           .font('Helvetica-Bold')
           .fillColor('#111827')
-          .text('📝 Descripción del Problema');
+          .text('DESCRIPCIÓN DEL PROBLEMA');
 
         doc.moveDown(0.5);
         doc
@@ -92,7 +92,7 @@ export class PdfService {
             .fontSize(16)
             .font('Helvetica-Bold')
             .fillColor('#111827')
-            .text('👤 Información del Cliente');
+            .text('INFORMACIÓN DEL CLIENTE');
 
           doc.moveDown(0.5);
 
@@ -123,7 +123,7 @@ export class PdfService {
             .fontSize(16)
             .font('Helvetica-Bold')
             .fillColor('#111827')
-            .text('🔧 Técnico Asignado');
+            .text('TÉCNICO ASIGNADO');
 
           doc.moveDown(0.5);
 
@@ -142,7 +142,7 @@ export class PdfService {
             .fontSize(16)
             .font('Helvetica-Bold')
             .fillColor('#111827')
-            .text('📍 Ubicación');
+            .text('UBICACIÓN DEL SERVICIO');
 
           doc.moveDown(0.5);
 
@@ -164,7 +164,7 @@ export class PdfService {
           .fontSize(16)
           .font('Helvetica-Bold')
           .fillColor('#111827')
-          .text('🔧 Detalles del Servicio');
+          .text('DETALLES DEL SERVICIO');
 
         doc.moveDown(0.5);
 
@@ -200,7 +200,7 @@ export class PdfService {
             .fontSize(16)
             .font('Helvetica-Bold')
             .fillColor('#111827')
-            .text('📝 Observaciones');
+            .text('OBSERVACIONES');
 
           doc.moveDown(0.5);
           doc
@@ -239,7 +239,7 @@ export class PdfService {
             .fontSize(16)
             .font('Helvetica-Bold')
             .fillColor('#111827')
-            .text('💰 Costos y Tiempos');
+            .text('COSTOS Y TIEMPOS');
 
           doc.moveDown(0.5);
           this.drawTable(doc, costosYTiempos);
@@ -252,7 +252,7 @@ export class PdfService {
             .fontSize(16)
             .font('Helvetica-Bold')
             .fillColor('#111827')
-            .text('📸 Evidencias Fotográficas');
+            .text('EVIDENCIAS FOTOGRÁFICAS');
 
           doc.moveDown(0.5);
 
@@ -312,7 +312,7 @@ export class PdfService {
               );
               const usuario = evidencia.username || 'Usuario no especificado';
               const rol =
-                evidencia.userrole === 'cliente' ? '👤 Cliente' : '🔧 Técnico';
+                evidencia.userrole === 'cliente' ? 'Cliente' : 'Técnico';
 
               doc
                 .fontSize(10)
@@ -358,15 +358,17 @@ export class PdfService {
             .fontSize(16)
             .font('Helvetica-Bold')
             .fillColor('#111827')
-            .text('⭐ Calificación del Servicio');
+            .text('CALIFICACIÓN DEL SERVICIO');
 
           doc.moveDown(0.5);
 
-          const estrellas =
-            '⭐'.repeat(orden.calificacion) +
-            '☆'.repeat(5 - orden.calificacion);
+          const estrellasLlenas = '★'.repeat(orden.calificacion);
+          const estrellasVacias = '☆'.repeat(5 - orden.calificacion);
 
-          doc.fontSize(20).fillColor('#F59E0B').text(estrellas);
+          doc
+            .fontSize(20)
+            .fillColor('#F59E0B')
+            .text(estrellasLlenas + estrellasVacias);
 
           if (orden.comentarioCalificacion) {
             doc.moveDown(0.5);
