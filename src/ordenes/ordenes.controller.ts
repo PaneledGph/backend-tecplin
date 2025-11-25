@@ -11,6 +11,7 @@ import {
   Query,
   Res,
   BadRequestException,
+  ForbiddenException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -142,13 +143,37 @@ export class OrdenesController {
 
   @Get()
   @Roles('ADMIN', 'TECNICO')
-  todasOrdenes(
+  async todasOrdenes(
+    @Req() req,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('estado') estado?: Estado,
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 50;
+
+    const rol = req.user.rol;
+
+    if (rol === 'TECNICO') {
+      const usuarioId = req.user.sub;
+      const tecnico = await this.prisma.tecnico.findUnique({
+        where: { usuarioid: usuarioId },
+      });
+
+      if (!tecnico) {
+        throw new BadRequestException(
+          'No se encontró un técnico asociado al usuario.',
+        );
+      }
+
+      return this.ordenesService.obtenerOrdenesTecnico(
+        tecnico.id,
+        pageNum,
+        limitNum,
+        estado,
+      );
+    }
+
     return this.ordenesService.obtenerTodasOrdenes(pageNum, limitNum, estado);
   }
 
@@ -235,8 +260,55 @@ export class OrdenesController {
   // Obtener detalle de una orden
   @Get(':id')
   @Roles('ADMIN', 'TECNICO', 'CLIENTE')
-  obtenerOrden(@Param('id') id: string) {
-    return this.ordenesService.obtenerOrdenPorId(Number(id));
+  async obtenerOrden(@Param('id') id: string, @Req() req) {
+    const ordenId = Number(id);
+    const { rol, sub } = req.user;
+
+    if (rol === 'TECNICO') {
+      const tecnico = await this.prisma.tecnico.findUnique({
+        where: { usuarioid: sub },
+      });
+
+      if (!tecnico) {
+        throw new BadRequestException(
+          'No se encontró un técnico asociado al usuario.',
+        );
+      }
+
+      const orden = await this.prisma.orden.findUnique({
+        where: { id: ordenId },
+        select: { tecnicoid: true },
+      });
+
+      if (!orden || orden.tecnicoid !== tecnico.id) {
+        throw new ForbiddenException(
+          'Este técnico no tiene acceso a esta orden de servicio.',
+        );
+      }
+    } else if (rol === 'CLIENTE') {
+      const cliente = await this.prisma.cliente.findUnique({
+        where: { usuarioId: sub },
+      });
+
+      if (!cliente) {
+        throw new BadRequestException(
+          'El usuario no tiene un cliente asociado.',
+        );
+      }
+
+      const orden = await this.prisma.orden.findUnique({
+        where: { id: ordenId },
+        select: { clienteid: true },
+      });
+
+      if (!orden || orden.clienteid !== cliente.id) {
+        throw new ForbiddenException(
+          'Este cliente no tiene acceso a esta orden de servicio.',
+        );
+      }
+    }
+
+    return this.ordenesService.obtenerOrdenPorId(ordenId);
   }
 
   // Actualizar orden (agregar imágenes, actualizar campos)
@@ -332,8 +404,55 @@ export class OrdenesController {
   // Obtener evidencias de una orden
   @Get(':id/evidencias')
   @Roles('ADMIN', 'TECNICO', 'CLIENTE')
-  async obtenerEvidencias(@Param('id') id: string) {
-    return this.uploadService.obtenerEvidencias(Number(id));
+  async obtenerEvidencias(@Param('id') id: string, @Req() req) {
+    const ordenId = Number(id);
+    const { rol, sub } = req.user;
+
+    if (rol === 'TECNICO') {
+      const tecnico = await this.prisma.tecnico.findUnique({
+        where: { usuarioid: sub },
+      });
+
+      if (!tecnico) {
+        throw new BadRequestException(
+          'No se encontró un técnico asociado al usuario.',
+        );
+      }
+
+      const orden = await this.prisma.orden.findUnique({
+        where: { id: ordenId },
+        select: { tecnicoid: true },
+      });
+
+      if (!orden || orden.tecnicoid !== tecnico.id) {
+        throw new ForbiddenException(
+          'Este técnico no tiene acceso a las evidencias de esta orden.',
+        );
+      }
+    } else if (rol === 'CLIENTE') {
+      const cliente = await this.prisma.cliente.findUnique({
+        where: { usuarioId: sub },
+      });
+
+      if (!cliente) {
+        throw new BadRequestException(
+          'El usuario no tiene un cliente asociado.',
+        );
+      }
+
+      const orden = await this.prisma.orden.findUnique({
+        where: { id: ordenId },
+        select: { clienteid: true },
+      });
+
+      if (!orden || orden.clienteid !== cliente.id) {
+        throw new ForbiddenException(
+          'Este cliente no tiene acceso a las evidencias de esta orden.',
+        );
+      }
+    }
+
+    return this.uploadService.obtenerEvidencias(ordenId);
   }
 
   // Eliminar evidencia

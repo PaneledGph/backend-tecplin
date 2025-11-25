@@ -918,7 +918,9 @@ export class AssistantEnhancedService {
 
       const orden = await this.prisma.orden.findUnique({
         where: { id: orderId },
-        include: {
+        select: {
+          id: true,
+          estado: true,
           cliente: {
             select: { usuarioId: true },
           },
@@ -995,7 +997,9 @@ export class AssistantEnhancedService {
 
       const orden = await this.prisma.orden.findUnique({
         where: { id: orderId },
-        include: {
+        select: {
+          id: true,
+          tecnicoid: true,
           cliente: {
             select: { usuarioId: true },
           },
@@ -1007,6 +1011,21 @@ export class AssistantEnhancedService {
           spokenText: `No encontré la orden ${orderId}.`,
           confidence: 0.5,
         };
+      }
+
+      if (dto.role === 'TECNICO') {
+        const tecnico = await this.prisma.tecnico.findUnique({
+          where: { usuarioid: dto.userId },
+          select: { id: true },
+        });
+
+        if (!tecnico || orden.tecnicoid !== tecnico.id) {
+          return {
+            spokenText:
+              'Solo puedes ver las evidencias de las órdenes que te han sido asignadas.',
+            confidence: 0.4,
+          };
+        }
       }
 
       if (dto.role === 'CLIENTE' && orden.cliente?.usuarioId !== dto.userId) {

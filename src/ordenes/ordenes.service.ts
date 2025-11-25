@@ -270,6 +270,46 @@ export class OrdenesService {
     return ordenes.map((orden) => this.attachReportePdfUrlIfAvailable(orden));
   }
 
+  // Obtener todas las órdenes asignadas a un técnico concreto
+  async obtenerOrdenesTecnico(
+    tecnicoId: number,
+    page: number = 1,
+    limit: number = 50,
+    estado?: Estado,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const where: any = { tecnicoid: tecnicoId };
+    if (estado) {
+      where.estado = estado;
+    }
+
+    const [ordenesRaw, total] = await Promise.all([
+      this.prisma.orden.findMany({
+        where,
+        include: { cliente: true, tecnico: true },
+        orderBy: { fechasolicitud: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.orden.count({ where }),
+    ]);
+
+    const ordenes = ordenesRaw.map((orden) =>
+      this.attachReportePdfUrlIfAvailable(orden),
+    );
+
+    return {
+      data: ordenes,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   // Obtener todas las órdenes (ADMIN o TECNICO) con paginación
   async obtenerTodasOrdenes(
     page: number = 1,
