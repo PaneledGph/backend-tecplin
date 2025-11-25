@@ -9,6 +9,7 @@ import { IntentDetectorService } from './intent-detector.service';
 import { RAGService } from './rag.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { OrdenesModule } from 'src/ordenes/ordenes.module';
 import { AssistantLearningService } from './assistant-learning.service';
 import { AssistantHandlersService } from './assistant-handlers.service';
 import { AssistantActionsService } from './assistant-actions.service';
@@ -19,7 +20,7 @@ import { TechnicianAssignmentService } from './technician-assignment.service';
 import { NotificacionesModule } from 'src/notificaciones/notificaciones.module';
 
 @Module({
-  imports: [PrismaModule, NotificacionesModule],
+  imports: [PrismaModule, NotificacionesModule, OrdenesModule],
   controllers: [
     AssistantController,
     AssistantAdvancedController,

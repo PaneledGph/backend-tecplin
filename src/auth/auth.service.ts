@@ -30,12 +30,27 @@ export class AuthService {
       user.id,
     );
 
+    // Cargar información extendida del usuario (cliente/técnico) para mostrar nombre amigable en frontend
+    const fullUser = await this.usuariosService.findById(user.id);
+
+    const displayName =
+      (fullUser?.cliente && (fullUser as any).cliente?.nombre) ||
+      (fullUser?.tecnico && (fullUser as any).tecnico?.nombre) ||
+      user.usuario;
+
     return {
       message: 'Inicio de sesión exitoso',
       token: accessToken,
       refreshToken,
       rol: user.rol,
       rolFrontend,
+      userId: user.id,
+      user: {
+        id: user.id,
+        usuario: user.usuario,
+        rol: user.rol,
+        nombre: displayName,
+      },
     };
   }
 

@@ -134,6 +134,21 @@ export class OrdenesService {
     return Math.round(promedio);
   }
 
+  // Estimar precio públicamente para el controlador /ordenes/estimar-precio
+  estimarPrecio(
+    tipoProblema?: string,
+    prioridad?: Prioridad,
+    tiempoEstimadoHoras?: number,
+  ) {
+    const precioEstimado = this.calcularPrecioEstimado(
+      tipoProblema,
+      prioridad,
+      tiempoEstimadoHoras,
+    );
+
+    return { precioEstimado };
+  }
+
   // Crear nueva orden
   async crearOrden(
     clienteid: number,

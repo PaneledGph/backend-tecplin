@@ -214,7 +214,7 @@ export class ConversationFlowService {
     // Determinar el siguiente paso
     const nextStepKey = currentStep.nextStep;
 
-    // Lógica especial para ciertos flujos
+    // Avanzar el índice de paso actual
     context.step++;
     const nextStep = nextStepKey ? flow.steps[nextStepKey] : null;
 
@@ -222,6 +222,22 @@ export class ConversationFlowService {
     console.log('📋 Paso actual tiene acción:', currentStep.action);
 
     if (nextStep) {
+      // Si el siguiente paso es un paso de acción final (sin más nextStep),
+      // ejecutar la acción inmediatamente sin requerir otro mensaje del usuario.
+      if (nextStep.action && !nextStep.nextStep) {
+        this.activeConversations.delete(sessionId);
+        console.log(
+          '✅ Flujo completado al alcanzar paso de acción:',
+          nextStep.action,
+        );
+        return {
+          message: nextStep.message,
+          isComplete: true,
+          action: nextStep.action,
+          data: context.data,
+        };
+      }
+
       this.activeConversations.set(sessionId, context);
       return {
         message: nextStep.message,
@@ -230,7 +246,7 @@ export class ConversationFlowService {
         data: context.data,
       };
     } else {
-      // Flujo completado - ejecutar acción si existe
+      // Flujo completado - ejecutar acción si existe en el paso actual
       this.activeConversations.delete(sessionId);
 
       if (currentStep.action) {

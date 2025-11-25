@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrdenesService } from 'src/ordenes/ordenes.service';
+import { Prioridad } from '@prisma/client';
 import {
   IntentDetectorService,
   AssistantCommandDto,
@@ -42,6 +44,7 @@ export class AssistantEnhancedService {
     private readonly conversationFlow: ConversationFlowService,
     private readonly technicianAssignment: TechnicianAssignmentService,
     private readonly notificacionesService: NotificacionesService,
+    private readonly ordenesService: OrdenesService,
   ) {}
 
   /**
@@ -542,32 +545,35 @@ export class AssistantEnhancedService {
         };
       }
 
-      const nuevaOrden = await this.prisma.orden.create({
-        data: {
-          descripcion: problema,
-          tipoProblema: problema,
-          ubicacion: ubicacion,
-          prioridad: prioridadMap[prioridad] || 'MEDIA',
-          estado: 'PENDIENTE',
-          fechasolicitud: new Date(),
-          clienteid: cliente.id,
-        },
-      });
+      const prioridadDb: Prioridad =
+        (prioridadMap[prioridad] as Prioridad) || 'MEDIA';
+
+      const nuevaOrden = await this.ordenesService.crearOrden(
+        cliente.id,
+        problema,
+        prioridadDb,
+        ubicacion || undefined,
+        problema, // tipoProblema
+        undefined, // ubicacionLatitud
+        undefined, // ubicacionLongitud
+        undefined, // nombreContacto
+        undefined, // telefonoContacto
+        undefined, // emailContacto
+        undefined, // horarioPreferido
+        undefined, // materialesRequeridos
+        undefined, // observaciones
+        undefined, // imagenes
+        undefined, // costoEstimado
+        undefined, // tiempoEstimadoHoras
+      );
 
       let autoAssignMessage = '';
 
-      try {
-        const assignment = await this.technicianAssignment.autoAssignTechnician(
-          nuevaOrden.id,
-        );
-
-        if (assignment?.success && assignment.technician) {
-          autoAssignMessage = ` También he asignado automáticamente al técnico ${assignment.technician.nombre}.`;
-        } else if (assignment && !assignment.success) {
-          autoAssignMessage = ` No pude asignar automáticamente un técnico: ${assignment.message}.`;
-        }
-      } catch (error) {
-        console.error('Error en autoasignación de técnico:', error);
+      const ordenConTecnico: any = nuevaOrden as any;
+      if (ordenConTecnico?.tecnico) {
+        const tecnicoNombre =
+          ordenConTecnico.tecnico.nombre || 'un técnico disponible';
+        autoAssignMessage = ` También he asignado automáticamente al técnico ${tecnicoNombre}.`;
       }
 
       const actions: AssistantAction[] = [

@@ -106,6 +106,24 @@ export class OrdenesController {
     );
   }
 
+  // Estimar precio de una orden sin crearla (para pantallas de creación)
+  @Post('estimar-precio')
+  @Roles('CLIENTE', 'ADMIN', 'TECNICO')
+  estimarPrecio(
+    @Body()
+    body: {
+      tipoProblema?: string;
+      prioridad?: Prioridad;
+      tiempoEstimadoHoras?: number;
+    },
+  ) {
+    return this.ordenesService.estimarPrecio(
+      body.tipoProblema,
+      body.prioridad,
+      body.tiempoEstimadoHoras,
+    );
+  }
+
   @Get('mis-ordenes')
   @Roles('CLIENTE')
   async misOrdenes(@Req() req) {
