@@ -31,14 +31,10 @@ export class IntentDetectorService {
 
   async detect(command: AssistantCommandDto): Promise<DetectedIntent> {
     const text = command.text.trim();
-    // Intentar con diferentes modelos disponibles
-    let model;
-    try {
-      model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
-    } catch (error) {
-      console.log('⚠️ gemini-1.5-pro no disponible, intentando gemini-pro...');
-      model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
-    }
+    // Seleccionar modelo Gemini desde variable de entorno o usar uno estable por defecto
+    const modelName = process.env.GEMINI_MODEL || 'gemini-pro';
+    console.log('🧠 Usando modelo Gemini para intent detection:', modelName);
+    const model = this.genAI.getGenerativeModel({ model: modelName });
 
     const prompt = `
 Eres el motor de interpretación de un asistente de órdenes técnicas para la empresa TECPLIN.
