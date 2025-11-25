@@ -1202,6 +1202,9 @@ export class AssistantEnhancedService {
       case 'UPDATE_ORDER_STATUS':
         return this.updateOrderStatus(dto, intent);
 
+      case 'CANCEL_ORDER':
+        return this.cancelOrder(dto, intent);
+
       case 'ASSIGN_TECHNICIAN':
         return this.assignTechnician(dto, intent);
 
@@ -1225,6 +1228,9 @@ export class AssistantEnhancedService {
 
       case 'GET_ORDERS_SUMMARY':
         return this.getOrdersSummary(dto, intent);
+
+      case 'GET_NEAREST_ORDER':
+        return this.getNearestOrder(dto, intent);
 
       case 'GET_INVENTORY_ITEM':
       case 'REQUEST_MATERIAL':
@@ -1431,6 +1437,98 @@ export class AssistantEnhancedService {
     }
   }
 
+  private async cancelOrder(
+    dto: AssistantCommandDto,
+    intent: DetectedIntent,
+  ): Promise<AssistantResponse> {
+    try {
+      const orderId = intent.orderId || dto.activeOrderId;
+
+      if (!orderId) {
+        return { spokenText: 'No especificaste qué orden cancelar.' };
+      }
+
+      const orden = await this.prisma.orden.findUnique({
+        where: { id: orderId },
+        include: {
+          cliente: { include: { usuario: true } },
+          tecnico: true,
+        },
+      });
+
+      if (!orden) {
+        return { spokenText: `No encontré la orden ${orderId}.` };
+      }
+
+      if (dto.role === 'CLIENTE') {
+        if (orden.cliente?.usuario?.id !== dto.userId) {
+          return {
+            spokenText:
+              'Solo puedes cancelar tus propias órdenes. Esta orden no pertenece a tu usuario.',
+          };
+        }
+      } else if (dto.role === 'TECNICO') {
+        return {
+          spokenText:
+            'Por ahora la cancelación de órdenes solo está disponible para clientes y administradores.',
+        };
+      }
+
+      if (orden.estado === 'COMPLETADO') {
+        return {
+          spokenText: `La orden ${orderId} ya está completada y no puede cancelarse.`,
+        };
+      }
+
+      if (orden.estado === 'CANCELADO') {
+        return {
+          spokenText: `La orden ${orderId} ya se encuentra cancelada.`,
+        };
+      }
+
+      const updated = await this.prisma.orden.update({
+        where: { id: orderId },
+        data: { estado: 'CANCELADO' as any },
+        include: {
+          cliente: { include: { usuario: true } },
+          tecnico: true,
+        },
+      });
+
+      try {
+        const clienteUsuarioId = updated.cliente?.usuario?.id;
+        if (clienteUsuarioId) {
+          await this.notificacionesService.crear({
+            usuarioId: clienteUsuarioId,
+            tipo: 'ORDEN_CANCELADA',
+            titulo: 'Orden cancelada',
+            mensaje: `Tu orden #${orderId} ha sido cancelada.`,
+            ordenId: orderId,
+          });
+        }
+      } catch (error) {
+        console.error('Error creando notificación de cancelación:', error);
+      }
+
+      return {
+        spokenText: `He cancelado la orden ${orderId}.`,
+        confidence: 0.9,
+        actions: [
+          { type: 'REFRESH_ORDER_LIST' },
+          { type: 'HIGHLIGHT_ORDER', payload: { orderId } },
+        ],
+        data: { orden: updated },
+      };
+    } catch (error) {
+      console.error('Error cancelando orden:', error);
+      return {
+        spokenText:
+          'Hubo un error al cancelar la orden. Por favor, intenta de nuevo.',
+        confidence: 0.3,
+      };
+    }
+  }
+
   /**
    * Asignar técnico
    */
@@ -1531,6 +1629,104 @@ export class AssistantEnhancedService {
     }
   }
 
+  private async getNearestOrder(
+    dto: AssistantCommandDto,
+    intent: DetectedIntent,
+  ): Promise<AssistantResponse> {
+    if (dto.role !== 'TECNICO') {
+      return {
+        spokenText:
+          'La búsqueda de la orden más cercana solo está disponible para técnicos.',
+      };
+    }
+
+    const tecnico = await this.prisma.tecnico.findFirst({
+      where: { usuarioid: dto.userId },
+    });
+
+    if (!tecnico) {
+      return {
+        spokenText: 'No encontré el técnico asociado a tu usuario.',
+      };
+    }
+
+    const ubicacion = await this.prisma.tecnicoUbicacion.findUnique({
+      where: { tecnicoId: tecnico.id },
+    });
+
+    if (!ubicacion) {
+      return {
+        spokenText:
+          'Aún no tengo registrada tu ubicación actual. Abre el mapa de navegación o comparte tu ubicación para poder ayudarte.',
+      };
+    }
+
+    const ordenes = await this.prisma.orden.findMany({
+      where: {
+        tecnicoid: tecnico.id,
+        estado: {
+          in: ['ASIGNADO', 'EN_PROCESO'],
+        },
+        ubicacionLatitud: { not: null },
+        ubicacionLongitud: { not: null },
+      },
+      include: {
+        cliente: true,
+      },
+    });
+
+    if (!ordenes.length) {
+      return {
+        spokenText:
+          'No encontré órdenes asignadas con ubicación registrada para calcular cuál está más cerca.',
+      };
+    }
+
+    let nearest = ordenes[0];
+    let minDistance = Number.POSITIVE_INFINITY;
+
+    for (const orden of ordenes) {
+      if (
+        orden.ubicacionLatitud == null ||
+        orden.ubicacionLongitud == null
+      ) {
+        continue;
+      }
+
+      const distance = this.calculateDistanceKm(
+        ubicacion.lat,
+        ubicacion.lng,
+        orden.ubicacionLatitud,
+        orden.ubicacionLongitud,
+      );
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = orden;
+      }
+    }
+
+    if (!isFinite(minDistance)) {
+      return {
+        spokenText:
+          'No pude calcular la distancia a tus órdenes. Verifica que tengan ubicación registrada.',
+      };
+    }
+
+    const distanceKm = Math.round(minDistance * 10) / 10;
+    const clienteNombre = nearest.cliente?.nombre || 'sin cliente';
+
+    return {
+      spokenText: `La orden más cercana a tu ubicación actual es la orden ${nearest.id}, a aproximadamente ${distanceKm} kilómetros, para el cliente ${clienteNombre}. Abro el mapa para que veas la ruta.`,
+      confidence: 0.9,
+      actions: [
+        { type: 'HIGHLIGHT_ORDER', payload: { orderId: nearest.id } },
+        { type: 'OPEN_ORDER_MAP', payload: { orderId: nearest.id } },
+      ],
+      data: { orden: nearest, distanceKm },
+    };
+  }
+
   /**
    * Reprogramar orden
    */
@@ -1545,7 +1741,14 @@ export class AssistantEnhancedService {
         return { spokenText: 'No pude identificar la orden o la nueva fecha.' };
       }
 
-      const newDate = new Date(intent.dateTime);
+      const newDate = this.parseIntentDate(intent.dateTime);
+
+      if (!newDate) {
+        return {
+          spokenText:
+            'No pude entender la nueva fecha para la orden. Por favor, dime una fecha concreta, por ejemplo "mañana" o "15 de diciembre".',
+        };
+      }
 
       await this.prisma.orden.update({
         where: { id: orderId },
@@ -1905,10 +2108,10 @@ export class AssistantEnhancedService {
   private translateStatus(status: string): string {
     const translations = {
       PENDIENTE: 'pendiente',
-      ASIGNADA: 'asignada',
+      ASIGNADO: 'asignada',
       EN_PROCESO: 'en proceso',
-      COMPLETADA: 'completada',
-      CANCELADA: 'cancelada',
+      COMPLETADO: 'completada',
+      CANCELADO: 'cancelada',
     };
     return translations[status] || status;
   }
@@ -1917,10 +2120,67 @@ export class AssistantEnhancedService {
     const mappings = {
       ARRIVED: 'EN_PROCESO',
       IN_PROGRESS: 'EN_PROCESO',
-      COMPLETED: 'COMPLETADA',
-      CANCELLED: 'CANCELADA',
+      COMPLETED: 'COMPLETADO',
+      CANCELLED: 'CANCELADO',
     };
     return mappings[status] || status;
+  }
+
+  private calculateDistanceKm(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const R = 6371; // km
+    const dLat = this.deg2rad(lat2 - lat1);
+    const dLon = this.deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.deg2rad(lat1)) *
+        Math.cos(this.deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  private deg2rad(deg: number): number {
+    return (deg * Math.PI) / 180;
+  }
+
+  private parseIntentDate(dateTime: string): Date | null {
+    if (!dateTime) {
+      return null;
+    }
+
+    const normalized = dateTime
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    const now = new Date();
+
+    if (normalized === 'hoy') {
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+      return today;
+    }
+
+    if (normalized === 'manana') {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      return tomorrow;
+    }
+
+    const parsed = new Date(dateTime);
+    if (isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return parsed;
   }
 
   private getTimeAgo(date: Date): string {

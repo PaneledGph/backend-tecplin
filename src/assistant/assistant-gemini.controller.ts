@@ -176,6 +176,8 @@ export class AssistantGeminiController {
         'TECH_DIAGNOSIS',
         'REQUEST_MATERIAL',
         'GET_CLIENT_ORDERS',
+        'GET_ORDERS_SUMMARY',
+        'GET_NEAREST_ORDER',
       ],
       CLIENTE: [
         'CREATE_ORDER',

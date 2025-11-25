@@ -71,6 +71,7 @@ TECNICO:
 - REGISTER_EVIDENCE, GET_ORDER_STATUS, TECH_DIAGNOSIS
 - REQUEST_MATERIAL, GET_CLIENT_ORDERS (solo sus órdenes)
 - GET_ORDERS_SUMMARY (solo sus órdenes)
+- GET_NEAREST_ORDER (orden más cercana a su ubicación actual)
 
 CLIENTE:
 - CREATE_ORDER, GET_ORDER_STATUS, RESCHEDULE_ORDER
@@ -95,6 +96,7 @@ TECNICO:
 - "¿cómo diagnosticar?", "problema técnico" → TECH_DIAGNOSIS
 - "mis órdenes" → GET_CLIENT_ORDERS
 - "resumen de mis órdenes", "resumen de mis órdenes de hoy" → GET_ORDERS_SUMMARY
+- "qué orden está más cerca", "orden más cercana a mi ubicación", "qué orden está más cerca de mi ubicación" → GET_NEAREST_ORDER
 
 CLIENTE:
 - "crear orden", "tengo un problema" → CREATE_ORDER
