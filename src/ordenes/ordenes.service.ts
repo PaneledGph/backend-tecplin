@@ -57,6 +57,83 @@ export class OrdenesService {
     };
   }
 
+  private calcularPrecioEstimado(
+    tipoProblema?: string,
+    prioridad?: Prioridad,
+    tiempoEstimadoHoras?: number,
+  ) {
+    const tipoKey = (tipoProblema || 'DEFAULT').toUpperCase();
+
+    const configByTipo: {
+      [key: string]: {
+        baseMin: number;
+        baseMax: number;
+        hourMin: number;
+        hourMax: number;
+        defaultHoras: number;
+      };
+    } = {
+      ELECTRICO: {
+        baseMin: 80,
+        baseMax: 100,
+        hourMin: 50,
+        hourMax: 65,
+        defaultHoras: 1.5,
+      },
+      PLOMERIA: {
+        baseMin: 70,
+        baseMax: 90,
+        hourMin: 45,
+        hourMax: 60,
+        defaultHoras: 2,
+      },
+      AIRE_ACONDICIONADO: {
+        baseMin: 100,
+        baseMax: 130,
+        hourMin: 60,
+        hourMax: 80,
+        defaultHoras: 2.5,
+      },
+      DEFAULT: {
+        baseMin: 70,
+        baseMax: 90,
+        hourMin: 45,
+        hourMax: 60,
+        defaultHoras: 2,
+      },
+    };
+
+    const config = configByTipo[tipoKey] || configByTipo.DEFAULT;
+
+    const horas =
+      tiempoEstimadoHoras && tiempoEstimadoHoras > 0
+        ? tiempoEstimadoHoras
+        : config.defaultHoras;
+
+    const recargoPrioridad: {
+      [key: string]: {
+        min: number;
+        max: number;
+      };
+    } = {
+      BAJA: { min: 0, max: 0 },
+      MEDIA: { min: 20, max: 30 },
+      ALTA: { min: 40, max: 60 },
+    };
+
+    const recargo = recargoPrioridad[prioridad || 'MEDIA'] || recargoPrioridad.MEDIA;
+
+    const baseMin = config.baseMin + config.hourMin * horas;
+    const baseMax = config.baseMax + config.hourMax * horas;
+
+    const precioMin = baseMin + recargo.min;
+    const precioMax = baseMax + recargo.max;
+
+    const promedio = (precioMin + precioMax) / 2;
+
+    return Math.round(promedio);
+  }
+
   // Crear nueva orden
   async crearOrden(
     clienteid: number,
@@ -76,6 +153,15 @@ export class OrdenesService {
     costoEstimado?: number,
     tiempoEstimadoHoras?: number,
   ) {
+    const costoEstimadoCalculado =
+      costoEstimado != null
+        ? costoEstimado
+        : this.calcularPrecioEstimado(
+            tipoProblema,
+            prioridad,
+            tiempoEstimadoHoras,
+          );
+
     const orden = await this.prisma.orden.create({
       data: {
         descripcion,
@@ -92,10 +178,50 @@ export class OrdenesService {
         materialesRequeridos,
         observaciones,
         imagenes: imagenes || [],
-        costoEstimado,
+        costoEstimado: costoEstimadoCalculado,
         tiempoEstimadoHoras,
       },
     });
+
+    // Notificaciones automáticas al crear la orden
+    try {
+      // Notificar al cliente (si tiene usuario asociado)
+      const cliente = await this.prisma.cliente.findUnique({
+        where: { id: clienteid },
+      });
+
+      if (cliente?.usuarioId) {
+        await this.notificacionesService.crear({
+          usuarioId: cliente.usuarioId,
+          tipo: 'ORDEN_ACTUALIZADA',
+          titulo: '📋 Orden registrada',
+          mensaje: `Tu orden #${orden.id} ha sido registrada y está en estado PENDIENTE.`,
+          ordenId: orden.id,
+        });
+      }
+
+      // Notificar a administradores sobre la nueva orden
+      const admins = await this.prisma.usuario.findMany({
+        where: { rol: 'ADMIN' },
+      });
+
+      for (const admin of admins) {
+        await this.notificacionesService.crear({
+          usuarioId: admin.id,
+          tipo: 'ORDEN_ACTUALIZADA',
+          titulo: '📋 Nueva orden creada',
+          mensaje: `Se ha registrado la orden #${orden.id} del cliente ${
+            (cliente as any)?.nombre || 'N/A'
+          }.`,
+          ordenId: orden.id,
+        });
+      }
+    } catch (error) {
+      console.error(
+        'Error enviando notificaciones al crear orden:',
+        error,
+      );
+    }
 
     try {
       const assignment = await this.technicianAssignment.autoAssignTechnician(
