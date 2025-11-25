@@ -1196,6 +1196,9 @@ export class AssistantEnhancedService {
       case 'GET_ORDER_STATUS':
         return this.getOrderStatus(dto, intent);
 
+      case 'GET_CLIENT_ORDERS':
+        return this.getClientOrders(dto, intent);
+
       case 'UPDATE_ORDER_STATUS':
         return this.updateOrderStatus(dto, intent);
 
@@ -1269,6 +1272,124 @@ export class AssistantEnhancedService {
     } catch (error) {
       console.error('Error obteniendo estado:', error);
       return { spokenText: 'Error al consultar el estado de la orden.' };
+    }
+  }
+
+  /**
+   * Listar órdenes del usuario (cliente o técnico)
+   */
+  private async getClientOrders(
+    dto: AssistantCommandDto,
+    intent: DetectedIntent,
+  ): Promise<AssistantResponse> {
+    try {
+      const where: any = {};
+      let ownerDescription = '';
+
+      // Determinar propietario según rol
+      if (dto.role === 'TECNICO') {
+        const tecnico = await this.prisma.tecnico.findFirst({
+          where: { usuarioid: dto.userId },
+        });
+
+        if (!tecnico) {
+          return {
+            spokenText: 'No encontré el técnico asociado a tu usuario.',
+          };
+        }
+
+        where.tecnicoid = tecnico.id;
+        ownerDescription = 'asignadas a ti';
+      } else if (dto.role === 'CLIENTE') {
+        const cliente = await this.prisma.cliente.findFirst({
+          where: { usuarioId: dto.userId },
+        });
+
+        if (!cliente) {
+          return {
+            spokenText: 'No encontré el cliente asociado a tu usuario.',
+          };
+        }
+
+        where.clienteid = cliente.id;
+        ownerDescription = 'tuyas';
+      } else if (dto.role === 'ADMIN') {
+        if (intent.clientId) {
+          where.clienteid = intent.clientId;
+          ownerDescription = `del cliente ${intent.clientId}`;
+        } else {
+          ownerDescription = 'del sistema';
+        }
+      }
+
+      // Filtro por estado si viene en la intención
+      let estadoDB: string | null = null;
+      if (intent.status) {
+        estadoDB = this.mapStatusToDatabase(intent.status);
+      }
+      if (estadoDB) {
+        where.estado = estadoDB as any;
+      }
+
+      const ordenes = await this.prisma.orden.findMany({
+        where,
+        orderBy: { fechasolicitud: 'desc' },
+        include: {
+          cliente: true,
+          tecnico: true,
+        },
+        take: 10,
+      });
+
+      if (!ordenes.length) {
+        if (estadoDB) {
+          const estadoTexto = this.translateStatus(estadoDB as any);
+          return {
+            spokenText: `No encontré órdenes ${estadoTexto} ${ownerDescription}.`,
+          };
+        }
+
+        return {
+          spokenText: `No encontré órdenes ${ownerDescription}.`,
+        };
+      }
+
+      const total = ordenes.length;
+      const primeras = ordenes.slice(0, 3);
+      const descripciones = primeras
+        .map((o) => {
+          const estadoTexto = this.translateStatus(o.estado as any);
+          const clienteNombre = o.cliente?.nombre || 'sin cliente';
+          return `orden ${o.id} ${estadoTexto} para ${clienteNombre}`;
+        })
+        .join('; ');
+
+      let mensajeBase = '';
+      if (estadoDB) {
+        const estadoTexto = this.translateStatus(estadoDB as any);
+        mensajeBase = `Tienes ${total} órdenes ${estadoTexto} ${ownerDescription}.`;
+      } else {
+        mensajeBase = `Tienes ${total} órdenes ${ownerDescription}.`;
+      }
+
+      const spokenText = `${mensajeBase} Las más recientes son: ${descripciones}.`;
+
+      const actions: AssistantAction[] = [
+        { type: 'REFRESH_ORDER_LIST' },
+        { type: 'HIGHLIGHT_ORDER', payload: { orderId: ordenes[0].id } },
+      ];
+
+      return {
+        spokenText,
+        data: { ordenes },
+        actions,
+      };
+    } catch (error) {
+      console.error('Error obteniendo órdenes del usuario:', error);
+      return {
+        spokenText:
+          'Hubo un error al consultar tus órdenes. Por favor, intenta de nuevo.',
+      };
     }
   }
 
