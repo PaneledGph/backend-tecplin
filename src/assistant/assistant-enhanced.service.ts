@@ -62,6 +62,13 @@ export class AssistantEnhancedService {
         return directAssignment;
       }
 
+      // Atajo directo para abrir evidencias de una orden (especialmente para técnicos)
+      const evidenceShortcut = await this.tryEvidenceShortcut(dto);
+      if (evidenceShortcut) {
+        console.log('⚡️ Atajo de evidencias detectado, abriendo evidencias');
+        return evidenceShortcut;
+      }
+
       // 1. Verificar si hay una conversación activa
       const activeConversation = this.conversationFlow.getActiveConversation(
         dto.userId,
@@ -87,7 +94,13 @@ export class AssistantEnhancedService {
         return this.startConversationFlow(dto, flowIntent);
       }
 
-      // 3. Detectar intención con Gemini
+      // 3. Small talk sencillo sin llamar a Gemini (saludos, hora, etc.)
+      const smallTalk = this.handleSmallTalk(dto);
+      if (smallTalk) {
+        return smallTalk;
+      }
+
+      // 4. Detectar intención con Gemini
       const detected = await this.intentDetector.detect(dto);
 
       // 4. Si es consulta técnica, usar RAG
@@ -129,6 +142,94 @@ export class AssistantEnhancedService {
         confidence: 0.3,
       };
     }
+  }
+
+  /**
+   * Atajo para que el técnico abra directamente las evidencias de una orden
+   * con un solo comando de voz ("abrir evidencias de la orden 15", etc.).
+   */
+  private async tryEvidenceShortcut(
+    dto: AssistantCommandDto,
+  ): Promise<AssistantResponse | null> {
+    // Solo tiene sentido para técnicos (el cliente ya tiene flujo guiado)
+    if (dto.role !== 'TECNICO') {
+      return null;
+    }
+
+    const text = dto.text?.toLowerCase() || '';
+
+    const mentionsEvidence =
+      text.includes('evidencia') ||
+      text.includes('evidencias') ||
+      text.includes('foto') ||
+      text.includes('fotos');
+
+    if (!mentionsEvidence) {
+      return null;
+    }
+
+    const orderId = this.extractOrderId(dto.text) || dto.activeOrderId;
+    if (!orderId) {
+      return null;
+    }
+
+    console.log('🎯 Atajo de evidencias detectado para orden:', orderId);
+
+    // Reusar la lógica de executeShowEvidences pasando el número de orden
+    return this.executeShowEvidences(dto, {
+      ask_order_id: `orden ${orderId}`,
+    });
+  }
+
+  /**
+   * Maneja interacciones sencillas tipo "hola" o "qué hora es" sin llamar a Gemini.
+   */
+  private handleSmallTalk(dto: AssistantCommandDto): AssistantResponse | null {
+    const text = dto.text?.toLowerCase().trim() || '';
+    if (!text) {
+      return null;
+    }
+
+    // Saludos básicos
+    const greetingKeywords = [
+      'hola',
+      'buenas',
+      'buenos dias',
+      'buenos días',
+      'buenas tardes',
+      'buenas noches',
+      'hey',
+    ];
+
+    if (greetingKeywords.some((k) => text === k || text.startsWith(k + ' '))) {
+      return {
+        spokenText:
+          'Hola, soy el asistente virtual de TECPLIN. ¿En qué puedo ayudarte con tus órdenes de servicio?',
+        confidence: 0.95,
+      };
+    }
+
+    // Preguntar la hora
+    if (
+      text.includes('que hora es') ||
+      text.includes('qué hora es') ||
+      text.includes('dime la hora') ||
+      text.includes('me dices la hora') ||
+      text.includes('me puedes decir la hora')
+    ) {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('es-PE', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      return {
+        spokenText: `Son las ${timeString}.`,
+        confidence: 0.95,
+      };
+    }
+
+    return null;
   }
 
   private async tryDirectAssignment(

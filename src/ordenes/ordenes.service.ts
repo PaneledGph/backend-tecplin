@@ -238,18 +238,22 @@ export class OrdenesService {
       );
     }
 
-    try {
-      const assignment = await this.technicianAssignment.autoAssignTechnician(
-        orden.id,
-      );
-      if (assignment?.success && assignment.order) {
-        return assignment.order;
+    const enableAutoAssign =
+      process.env.ENABLE_AUTO_ASSIGNMENT === 'true';
+
+    if (enableAutoAssign) {
+      try {
+        const assignment =
+          await this.technicianAssignment.autoAssignTechnician(orden.id);
+        if (assignment?.success && assignment.order) {
+          return assignment.order;
+        }
+      } catch (error) {
+        console.error(
+          'Error en autoasignación de técnico al crear orden:',
+          error,
+        );
       }
-    } catch (error) {
-      console.error(
-        'Error en autoasignación de técnico al crear orden:',
-        error,
-      );
     }
 
     return orden;
